@@ -12,13 +12,13 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass
 import json
 
-from src.core.serpapi_client import (
+from src.services.serpapi_client import (
     SerpApiClient, GoogleFlightsParams, 
     SerpApiError, RateLimitError, InvalidQueryError, NetworkError
 )
 from src.utils.airport_mapper import AirportMapper
 from src.models.flight import Flight
-from src.core.flight_api_interface import FlightAPIInterface, FlightSearchParams
+from src.services.flight_api_interface import FlightAPIInterface, FlightSearchParams
 
 logger = logging.getLogger(__name__)
 

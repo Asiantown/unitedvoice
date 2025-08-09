@@ -19,7 +19,7 @@ ENV/
 # Project specific
 audio/*.wav
 audio/*.mp3
-models/
+# models/  # Commented out - we need src/models in the repo
 *.log
 .env
 
