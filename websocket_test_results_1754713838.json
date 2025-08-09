@@ -1,0 +1,49 @@
+{
+  "overallStatus": "WARNING",
+  "overallReason": "1 test(s) have warnings",
+  "tests": [
+    {
+      "test": "connection",
+      "status": "PASSED",
+      "reason": "No automatic greeting sent",
+      "duration": 4.083,
+      "connected": true,
+      "messagesReceived": 1,
+      "autoGreetings": 0
+    },
+    {
+      "test": "health_check",
+      "status": "PASSED",
+      "reason": "Health check responded",
+      "duration": 2.004,
+      "responses": 1,
+      "healthData": {
+        "status": "healthy",
+        "active_sessions": 2,
+        "timestamp": "2025-08-09T04:30:28.641810"
+      }
+    },
+    {
+      "test": "user_conversation",
+      "status": "WARNING",
+      "reason": "Issues found: Errors received (1)",
+      "duration": 8.002,
+      "transcriptionsReceived": 0,
+      "agentResponsesReceived": 0,
+      "duplicateTranscriptions": false,
+      "duplicateResponses": false,
+      "statusUpdatesReceived": 1,
+      "errorsReceived": 1
+    }
+  ],
+  "totalMessagesReceived": 2,
+  "totalErrorsReceived": 1,
+  "totalStatusUpdates": 1,
+  "duration": 14.092,
+  "testSummary": {
+    "passed": 2,
+    "warnings": 1,
+    "failed": 0,
+    "total": 3
+  }
+}

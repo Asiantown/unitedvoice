@@ -1,0 +1,29 @@
+[project]
+name = "united-voice-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "elevenlabs>=2.8.1",
+    # "faster-whisper>=1.1.1",  # No longer needed - using Groq Whisper
+    "groq>=0.30.0",
+    "numpy>=2.3.2",
+    "python-dotenv>=1.1.1",
+    "requests>=2.32.4",
+    # "sounddevice>=0.5.2",  # Not needed for WebSocket server
+    "aiohttp>=3.8.0",
+    "python-dateutil>=2.8.0",
+    "fuzzywuzzy>=0.18.0",
+    "python-Levenshtein>=0.20.0",
+    # WebSocket and streaming dependencies
+    "websockets>=12.0",
+    "python-socketio>=5.11.0",
+    "aiofiles>=23.0.0",
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "python-multipart>=0.0.6",
+    "pyttsx3>=2.90", # Fallback TTS engine
+    "pydub>=0.25.1",
+    "gtts>=2.5.4",
+]

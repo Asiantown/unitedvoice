@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Playback Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            background: #0d6efd;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover { background: #0b5ed7; }
+        .result { 
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success { background: #0f5132; }
+        .error { background: #842029; }
+    </style>
+</head>
+<body>
+    <h1>Audio Playback Test</h1>
+    <p>Test different audio playback methods used in the voice interface.</p>
+    
+    <button onclick="testAudioContext()">Test AudioContext</button>
+    <button onclick="testSimpleAudio()">Test Simple Audio Element</button>
+    <button onclick="testBlobAudio()">Test Blob Audio</button>
+    <button onclick="testDataUrlAudio()">Test Data URL Audio</button>
+    <button onclick="clearResults()">Clear Results</button>
+    
+    <div id="results"></div>
+
+    <script>
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            results.appendChild(div);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function testAudioContext() {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 440;
+                gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.5);
+                
+                log('✅ AudioContext test tone played successfully', 'success');
+                audioContext.close();
+            } catch (error) {
+                log(`❌ AudioContext test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testSimpleAudio() {
+            try {
+                // Use a simple beep sound data URL
+                const beepDataUrl = "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LPeSIMHm7A7+OZSA0PVqzn77BdGAU+ltryxnkpBSuB0fLZiDcIGGTC7+yYSw0NTq3n8LP+";
+                const audio = new Audio(beepDataUrl);
+                audio.volume = 0.3;
+                await audio.play();
+                log('✅ Simple Audio Element with data URL played successfully', 'success');
+            } catch (error) {
+                log(`❌ Simple Audio Element test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testBlobAudio() {
+            try {
+                // Create a simple audio blob
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const sampleRate = audioContext.sampleRate;
+                const duration = 0.5;
+                const frameCount = sampleRate * duration;
+                const arrayBuffer = audioContext.createBuffer(1, frameCount, sampleRate);
+                const channelData = arrayBuffer.getChannelData(0);
+                
+                // Generate a sine wave
+                for (let i = 0; i < frameCount; i++) {
+                    channelData[i] = Math.sin(2 * Math.PI * 440 * i / sampleRate) * 0.1;
+                }
+                
+                // Convert to blob (this is simplified - real implementation would need proper WAV encoding)
+                const blob = new Blob([channelData.buffer], { type: 'audio/wav' });
+                const url = URL.createObjectURL(blob);
+                
+                const audio = new Audio(url);
+                audio.volume = 0.3;
+                
+                audio.onended = () => {
+                    URL.revokeObjectURL(url);
+                };
+                
+                await audio.play();
+                log('✅ Blob Audio played successfully', 'success');
+                audioContext.close();
+            } catch (error) {
+                log(`❌ Blob Audio test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testDataUrlAudio() {
+            try {
+                // Test with a very simple MP3 data URL
+                const mp3DataUrl = "data:audio/mpeg;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAAIAAAOsABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVaqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqr///////////////////////////////////////////8AAAAATGF2YzU4LjM1AAAAAAAAAAAAAAAAJAL//////+xDECIAAANIAIAAhCAADSAAAACkAKABIAAANIAAAAJQAoAEgAAA0gAAAAAAAAAAAAAAAAAAAAAAAA";
+                
+                const audio = new Audio(mp3DataUrl);
+                audio.volume = 0.3;
+                await audio.play();
+                log('✅ Data URL MP3 played successfully', 'success');
+            } catch (error) {
+                log(`❌ Data URL Audio test failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Test format support
+        window.onload = () => {
+            log('🎵 Audio Playback Testing Suite Initialized', 'info');
+            
+            const audio = new Audio();
+            const formats = [
+                { name: 'MP3', type: 'audio/mpeg' },
+                { name: 'WAV', type: 'audio/wav' },
+                { name: 'OGG', type: 'audio/ogg' },
+                { name: 'WebM Audio', type: 'audio/webm' },
+                { name: 'AAC', type: 'audio/aac' }
+            ];
+            
+            formats.forEach(format => {
+                const support = audio.canPlayType(format.type);
+                log(`${format.name}: ${support || 'Not supported'}`, support ? 'success' : 'error');
+            });
+        };
+    </script>
+</body>
+</html>

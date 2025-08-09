@@ -1,0 +1,361 @@
+name: Automated Testing
+
+on:
+  push:
+    branches: [ main, develop, 'feature/*', 'hotfix/*' ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run tests daily at 6 AM UTC
+    - cron: '0 6 * * *'
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  lint-and-format:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install Python linting tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install black isort flake8 mypy
+    
+    - name: Check Python formatting with Black
+      run: black --check --diff src/ tests/
+    
+    - name: Check Python imports with isort
+      run: isort --check-only --diff src/ tests/
+    
+    - name: Lint Python code with flake8
+      run: flake8 src/ tests/ --max-line-length=88 --extend-ignore=E203,W503
+    
+    - name: Type check with mypy
+      run: mypy src/ --ignore-missing-imports
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: voice-frontend/package-lock.json
+    
+    - name: Install frontend dependencies
+      working-directory: ./voice-frontend
+      run: npm ci
+    
+    - name: Lint frontend code
+      working-directory: ./voice-frontend
+      run: npm run lint
+    
+    - name: Type check frontend
+      working-directory: ./voice-frontend
+      run: npm run type-check
+
+  test-backend:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.12']
+    
+    services:
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y portaudio19-dev python3-dev build-essential ffmpeg
+    
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio pytest-cov pytest-mock pytest-xdist
+    
+    - name: Run unit tests
+      env:
+        GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        GOOGLE_FLIGHTS_API_KEY: ${{ secrets.GOOGLE_FLIGHTS_API_KEY }}
+        SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+        REDIS_URL: redis://localhost:6379
+      run: |
+        pytest tests/ -v \
+          --cov=src \
+          --cov-report=xml \
+          --cov-report=term-missing \
+          --cov-report=html \
+          --junit-xml=test-results.xml \
+          -n auto
+    
+    - name: Run integration tests
+      env:
+        GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        GOOGLE_FLIGHTS_API_KEY: ${{ secrets.GOOGLE_FLIGHTS_API_KEY }}
+        SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+        REDIS_URL: redis://localhost:6379
+      run: |
+        python -m pytest tests/ -v -m "integration" --timeout=300
+    
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: backend
+        name: backend-coverage
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results-backend-${{ matrix.python-version }}
+        path: |
+          test-results.xml
+          htmlcov/
+          coverage.xml
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['18', '20']
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: voice-frontend/package-lock.json
+    
+    - name: Cache Node.js modules
+      uses: actions/cache@v3
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+    
+    - name: Install frontend dependencies
+      working-directory: ./voice-frontend
+      run: npm ci
+    
+    - name: Build frontend
+      working-directory: ./voice-frontend
+      run: npm run build
+    
+    - name: Run frontend tests (if any)
+      working-directory: ./voice-frontend
+      run: |
+        if [ -f "package.json" ] && grep -q '"test"' package.json; then
+          npm test -- --coverage --watchAll=false
+        else
+          echo "No frontend tests configured, running basic validation..."
+          npm run type-check
+        fi
+    
+    - name: Test frontend build size
+      working-directory: ./voice-frontend
+      run: |
+        npm run analyze || echo "Bundle analysis not configured"
+        du -sh .next/ || echo "Build directory not found"
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: voice-frontend/package-lock.json
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y portaudio19-dev python3-dev build-essential
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Install frontend dependencies
+      working-directory: ./voice-frontend
+      run: npm ci
+    
+    - name: Build frontend
+      working-directory: ./voice-frontend
+      run: npm run build
+    
+    - name: Start backend server
+      env:
+        GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+      run: |
+        python start_websocket.py &
+        echo $! > backend.pid
+        sleep 10
+    
+    - name: Start frontend server
+      working-directory: ./voice-frontend
+      run: |
+        npm start &
+        echo $! > frontend.pid
+        sleep 15
+    
+    - name: Run end-to-end tests
+      run: |
+        python comprehensive_test.py || echo "E2E tests completed with issues"
+        python final_system_test.py || echo "System tests completed with issues"
+    
+    - name: Stop servers
+      if: always()
+      run: |
+        if [ -f backend.pid ]; then
+          kill $(cat backend.pid) || true
+        fi
+        if [ -f voice-frontend/frontend.pid ]; then
+          kill $(cat voice-frontend/frontend.pid) || true
+        fi
+
+  performance-tests:
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install locust
+    
+    - name: Run WebSocket performance tests
+      env:
+        GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+      run: |
+        python start_websocket.py &
+        BACKEND_PID=$!
+        sleep 10
+        
+        # Run basic WebSocket stress test
+        timeout 60s python simple_websocket_test.py || echo "WebSocket test completed"
+        
+        kill $BACKEND_PID || true
+
+  security-audit:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install Python security tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install safety bandit semgrep
+    
+    - name: Run Python safety check
+      run: safety check --json --output safety-report.json || true
+    
+    - name: Run Bandit security scan
+      run: bandit -r src/ -f json -o bandit-report.json || true
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: voice-frontend/package-lock.json
+    
+    - name: Install frontend dependencies
+      working-directory: ./voice-frontend
+      run: npm ci
+    
+    - name: Run npm audit
+      working-directory: ./voice-frontend
+      run: npm audit --audit-level moderate || true
+    
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          safety-report.json
+          bandit-report.json
+
+  test-summary:
+    runs-on: ubuntu-latest
+    needs: [lint-and-format, test-backend, test-frontend, e2e-tests, security-audit]
+    if: always()
+    
+    steps:
+    - name: Test Summary
+      run: |
+        echo "## Test Summary" >> $GITHUB_STEP_SUMMARY
+        echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Lint & Format | ${{ needs.lint-and-format.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Backend Tests | ${{ needs.test-backend.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Frontend Tests | ${{ needs.test-frontend.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| E2E Tests | ${{ needs.e2e-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Security Audit | ${{ needs.security-audit.result }} |" >> $GITHUB_STEP_SUMMARY

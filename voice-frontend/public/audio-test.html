@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Playback Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 10px;
+            background: #2a2a2a;
+            border-radius: 5px;
+        }
+        .message {
+            padding: 10px;
+            margin: 10px 0;
+            background: #2a2a2a;
+            border-radius: 5px;
+        }
+        .success {
+            color: #10b981;
+        }
+        .error {
+            color: #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎧 Audio Playback Test</h1>
+    <p>This tests the complete audio pipeline from TTS to browser playback.</p>
+    
+    <button onclick="testDirectTTS()">Test Direct TTS</button>
+    <button onclick="testWebSocket()">Test WebSocket Audio</button>
+    
+    <div id="status"></div>
+    
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+    <script>
+        const status = document.getElementById('status');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            status.appendChild(div);
+        }
+        
+        async function testDirectTTS() {
+            log('Testing direct TTS endpoint...');
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/tts', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        text: 'This is a test of the audio system. If you can hear this, the audio is working correctly!'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.audio) {
+                    log('✅ Received audio data', 'success');
+                    playAudio(data.audio, data.format || 'mp3');
+                } else {
+                    log('❌ No audio data received', 'error');
+                }
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+        
+        function testWebSocket() {
+            log('Connecting to WebSocket...');
+            
+            const socket = io('http://localhost:8000', {
+                transports: ['websocket', 'polling']
+            });
+            
+            socket.on('connect', () => {
+                log('✅ Connected to WebSocket', 'success');
+            });
+            
+            socket.on('agent_response', (data) => {
+                log('Received agent response');
+                if (data.audio) {
+                    log('✅ Audio included in response', 'success');
+                    playAudio(data.audio, data.audio_format || 'mp3');
+                } else {
+                    log('⚠️ No audio in response', 'error');
+                }
+            });
+            
+            socket.on('error', (error) => {
+                log(`❌ WebSocket error: ${error.message}`, 'error');
+            });
+        }
+        
+        function playAudio(base64Audio, format = 'mp3') {
+            try {
+                // Decode base64
+                const byteCharacters = atob(base64Audio);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                
+                // Check audio header
+                const header = byteArray.slice(0, 4);
+                log(`Audio header: ${Array.from(header).map(b => b.toString(16).padStart(2, '0')).join(' ')}`);
+                
+                // Create blob and play
+                const blob = new Blob([byteArray], { type: `audio/${format}` });
+                const audioUrl = URL.createObjectURL(blob);
+                const audio = new Audio(audioUrl);
+                
+                audio.onplay = () => log('🔊 Audio playing...', 'success');
+                audio.onended = () => {
+                    log('✅ Audio playback completed', 'success');
+                    URL.revokeObjectURL(audioUrl);
+                };
+                audio.onerror = (e) => log(`❌ Audio error: ${e.type}`, 'error');
+                
+                audio.play().catch(err => {
+                    log(`❌ Playback failed: ${err.message}`, 'error');
+                });
+            } catch (error) {
+                log(`❌ Error processing audio: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

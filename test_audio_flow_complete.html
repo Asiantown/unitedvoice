@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>United Voice Agent - Complete Audio Flow Test</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .status-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .status-card {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .status-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 10px;
+            animation: pulse 2s infinite;
+        }
+        
+        .connected { background-color: #4CAF50; }
+        .disconnected { background-color: #f44336; }
+        .processing { background-color: #ff9800; }
+        .idle { background-color: #2196F3; }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+        
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .record-button {
+            background: linear-gradient(45deg, #e74c3c, #c0392b) !important;
+            font-size: 18px;
+            padding: 15px 30px;
+        }
+        
+        .record-button.recording {
+            background: linear-gradient(45deg, #27ae60, #2ecc71) !important;
+            animation: recordPulse 1s infinite;
+        }
+        
+        @keyframes recordPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .log-panel {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .log-entry {
+            margin-bottom: 10px;
+            padding: 5px;
+            border-radius: 5px;
+            border-left: 3px solid #667eea;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .log-entry.error {
+            border-left-color: #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+        }
+        
+        .log-entry.success {
+            border-left-color: #27ae60;
+            background: rgba(39, 174, 96, 0.1);
+        }
+        
+        .log-entry.info {
+            border-left-color: #3498db;
+            background: rgba(52, 152, 219, 0.1);
+        }
+        
+        .timestamp {
+            color: #bdc3c7;
+            font-size: 12px;
+        }
+        
+        .message-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            border-left: 4px solid;
+        }
+        
+        .message.user {
+            background: rgba(52, 152, 219, 0.2);
+            border-left-color: #3498db;
+        }
+        
+        .message.agent {
+            background: rgba(39, 174, 96, 0.2);
+            border-left-color: #27ae60;
+        }
+        
+        .message.system {
+            background: rgba(241, 196, 15, 0.2);
+            border-left-color: #f1c40f;
+        }
+        
+        .audio-controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        audio {
+            width: 100%;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 United Voice Agent - Complete Audio Flow Test</h1>
+        
+        <!-- Status Panel -->
+        <div class="status-panel">
+            <div class="status-card">
+                <h3>WebSocket Connection</h3>
+                <div id="connectionStatus">
+                    <span class="status-indicator disconnected"></span>
+                    <span id="connectionText">Disconnected</span>
+                </div>
+                <div id="realConnectionState" style="font-size: 12px; margin-top: 10px; color: #bdc3c7;"></div>
+            </div>
+            
+            <div class="status-card">
+                <h3>Voice Status</h3>
+                <div id="voiceStatus">
+                    <span class="status-indicator idle"></span>
+                    <span id="voiceText">Idle</span>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <h3>Server Status</h3>
+                <div id="serverStatus">
+                    <span class="status-indicator disconnected"></span>
+                    <span id="serverText">Unknown</span>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <h3>Test Progress</h3>
+                <div id="testProgress">
+                    <span id="testText">Ready to test</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Controls -->
+        <div class="controls">
+            <button onclick="connectSocket()">Connect</button>
+            <button onclick="disconnectSocket()">Disconnect</button>
+            <button onclick="testRealConnectionState()">Test getRealConnectionState</button>
+            <button onclick="sendHealthCheck()">Health Check</button>
+            <button onclick="resetConversation()">Reset Conversation</button>
+            <button onclick="clearLogs()">Clear Logs</button>
+        </div>
+        
+        <!-- Audio Controls -->
+        <div class="controls">
+            <button id="recordButton" class="record-button" onclick="toggleRecording()">🎤 Start Recording</button>
+            <button onclick="sendTestAudio()">Send Test Audio</button>
+            <button onclick="requestMicrophonePermission()">Request Microphone</button>
+        </div>
+        
+        <!-- Messages Panel -->
+        <div class="message-panel">
+            <h3>💬 Conversation</h3>
+            <div id="messages"></div>
+        </div>
+        
+        <!-- Audio Controls -->
+        <div class="audio-controls">
+            <h3>🔊 Audio Playback</h3>
+            <audio id="audioPlayer" controls style="display: none;"></audio>
+            <div id="audioStatus">No audio to play</div>
+        </div>
+        
+        <!-- Log Panel -->
+        <div>
+            <h3>📝 System Logs</h3>
+            <div id="logs" class="log-panel"></div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let socket = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+        let testResults = {};
+        
+        // Log function
+        function log(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.innerHTML = `<span class="timestamp">[${timestamp}]</span> ${message}`;
+            logs.appendChild(logEntry);
+            logs.scrollTop = logs.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        // Update status indicators
+        function updateStatus(element, status, text) {
+            const indicator = element.querySelector('.status-indicator');
+            const textElement = element.querySelector('span:last-child');
+            
+            indicator.className = `status-indicator ${status}`;
+            textElement.textContent = text;
+        }
+        
+        // Add message to conversation
+        function addMessage(type, content, metadata = {}) {
+            const messages = document.getElementById('messages');
+            const message = document.createElement('div');
+            message.className = `message ${type}`;
+            
+            let metaInfo = '';
+            if (metadata.confidence) {
+                metaInfo += ` (confidence: ${metadata.confidence.toFixed(2)})`;
+            }
+            if (metadata.intent) {
+                metaInfo += ` [${metadata.intent}]`;
+            }
+            
+            message.innerHTML = `<strong>${type.toUpperCase()}:</strong> ${content}${metaInfo}`;
+            messages.appendChild(message);
+            messages.scrollTop = messages.scrollHeight;
+        }
+        
+        // Socket connection functions
+        function connectSocket() {
+            if (socket && socket.connected) {
+                log('Socket already connected', 'info');
+                return;
+            }
+            
+            log('Attempting to connect to WebSocket...', 'info');
+            socket = io('http://localhost:8000');
+            
+            // Connection events
+            socket.on('connect', () => {
+                log('✅ WebSocket connected successfully!', 'success');
+                updateStatus(document.getElementById('connectionStatus'), 'connected', 'Connected');
+                testResults.connection = true;
+                updateRealConnectionState();
+            });
+            
+            socket.on('disconnect', () => {
+                log('❌ WebSocket disconnected', 'error');
+                updateStatus(document.getElementById('connectionStatus'), 'disconnected', 'Disconnected');
+                updateRealConnectionState();
+            });
+            
+            socket.on('connect_error', (error) => {
+                log(`💥 Connection error: ${error}`, 'error');
+                updateStatus(document.getElementById('connectionStatus'), 'disconnected', 'Error');
+                testResults.connectionError = error.toString();
+            });
+            
+            // Voice events
+            socket.on('transcription', (data) => {
+                log(`🎤 Received transcription: ${data.text}`, 'success');
+                addMessage('user', data.text, { confidence: data.confidence });
+                testResults.transcription = data;
+                updateStatus(document.getElementById('voiceStatus'), 'idle', 'Transcription received');
+            });
+            
+            socket.on('agent_response', (data) => {
+                log(`🤖 Received agent response: ${data.text}`, 'success');
+                addMessage('agent', data.text, { intent: data.intent, entities: data.entities });
+                testResults.agentResponse = data;
+                
+                // Handle audio if available
+                if (data.audio && data.audio_format) {
+                    playAudioResponse(data.audio, data.audio_format);
+                }
+                
+                updateStatus(document.getElementById('voiceStatus'), 'idle', 'Response received');
+            });
+            
+            socket.on('status_update', (data) => {
+                log(`📊 Status update: ${data.status}`, 'info');
+                updateStatus(document.getElementById('voiceStatus'), data.status.toLowerCase(), data.status);
+            });
+            
+            socket.on('connected', (data) => {
+                log(`🔗 Server connected event: ${JSON.stringify(data)}`, 'success');
+                addMessage('system', 'Connected to voice agent');
+                updateStatus(document.getElementById('serverStatus'), 'connected', 'Active');
+            });
+            
+            socket.on('error', (error) => {
+                log(`❌ Socket error: ${error}`, 'error');
+                addMessage('system', `Error: ${error}`);
+                testResults.socketError = error;
+            });
+            
+            socket.on('conversation_reset', (data) => {
+                log('🔄 Conversation reset', 'info');
+                addMessage('system', 'Conversation has been reset');
+                clearMessages();
+            });
+        }
+        
+        function disconnectSocket() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+                log('Socket disconnected manually', 'info');
+                updateStatus(document.getElementById('connectionStatus'), 'disconnected', 'Disconnected');
+                updateStatus(document.getElementById('serverStatus'), 'disconnected', 'Disconnected');
+            }
+        }
+        
+        // Test getRealConnectionState functionality
+        function testRealConnectionState() {
+            if (!socket) {
+                log('No socket instance available', 'error');
+                return;
+            }
+            
+            const realState = socket.connected;
+            const displayState = document.getElementById('connectionText').textContent;
+            
+            log(`🔍 Testing getRealConnectionState:`, 'info');
+            log(`  Socket.connected: ${realState}`, 'info');
+            log(`  Display state: ${displayState}`, 'info');
+            
+            document.getElementById('realConnectionState').textContent = 
+                `Real state: ${realState} | Display: ${displayState}`;
+                
+            if (realState && displayState === 'Connected') {
+                log('✅ Connection states are synchronized', 'success');
+            } else if (!realState && displayState === 'Disconnected') {
+                log('✅ Disconnection states are synchronized', 'success');
+            } else {
+                log('⚠️ Connection states are NOT synchronized', 'error');
+            }
+        }
+        
+        function updateRealConnectionState() {
+            setTimeout(testRealConnectionState, 100);
+        }
+        
+        // Audio recording functions
+        async function requestMicrophonePermission() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                log('✅ Microphone permission granted', 'success');
+                stream.getTracks().forEach(track => track.stop()); // Stop the stream
+                return true;
+            } catch (error) {
+                log(`❌ Microphone permission denied: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function toggleRecording() {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                await startRecording();
+            }
+        }
+        
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        sampleRate: 16000,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    }
+                });
+                
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+                
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    sendAudioData(audioBlob);
+                    stream.getTracks().forEach(track => track.stop());
+                };
+                
+                mediaRecorder.start();
+                isRecording = true;
+                
+                const recordButton = document.getElementById('recordButton');
+                recordButton.textContent = '⏹️ Stop Recording';
+                recordButton.classList.add('recording');
+                
+                updateStatus(document.getElementById('voiceStatus'), 'processing', 'Recording...');
+                log('🎤 Started audio recording', 'success');
+                
+            } catch (error) {
+                log(`❌ Recording error: ${error.message}`, 'error');
+            }
+        }
+        
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                
+                const recordButton = document.getElementById('recordButton');
+                recordButton.textContent = '🎤 Start Recording';
+                recordButton.classList.remove('recording');
+                
+                updateStatus(document.getElementById('voiceStatus'), 'processing', 'Processing...');
+                log('⏹️ Stopped audio recording', 'info');
+            }
+        }
+        
+        function sendAudioData(audioBlob) {
+            if (!socket || !socket.connected) {
+                log('❌ Cannot send audio: WebSocket not connected', 'error');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = () => {
+                const base64Audio = reader.result.split(',')[1];
+                const audioData = {
+                    audio: base64Audio,
+                    format: audioBlob.type.split('/')[1] || 'webm',
+                    timestamp: new Date().toISOString(),
+                    size: audioBlob.size
+                };
+                
+                log(`📤 Sending audio data: ${audioBlob.size} bytes`, 'info');
+                socket.emit('audio_data', audioData);
+                testResults.audioSent = audioData;
+            };
+            
+            reader.readAsDataURL(audioBlob);
+        }
+        
+        function sendTestAudio() {
+            // Create a simple test audio file
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const sampleRate = audioContext.sampleRate;
+            const duration = 2; // 2 seconds
+            const frequency = 440; // A4
+            
+            const buffer = audioContext.createBuffer(1, sampleRate * duration, sampleRate);
+            const channelData = buffer.getChannelData(0);
+            
+            for (let i = 0; i < channelData.length; i++) {
+                channelData[i] = Math.sin(2 * Math.PI * frequency * i / sampleRate) * 0.3;
+            }
+            
+            // Convert to WAV format (simplified)
+            const wavData = audioBufferToWav(buffer);
+            const audioBlob = new Blob([wavData], { type: 'audio/wav' });
+            
+            log('🎵 Sending synthetic test audio', 'info');
+            sendAudioData(audioBlob);
+        }
+        
+        function audioBufferToWav(buffer) {
+            const length = buffer.length;
+            const result = new ArrayBuffer(44 + length * 2);
+            const view = new DataView(result);
+            
+            // WAV header
+            const writeString = (offset, string) => {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            };
+            
+            writeString(0, 'RIFF');
+            view.setUint32(4, 36 + length * 2, true);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, buffer.sampleRate, true);
+            view.setUint32(28, buffer.sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeString(36, 'data');
+            view.setUint32(40, length * 2, true);
+            
+            // Convert float samples to 16-bit PCM
+            const channelData = buffer.getChannelData(0);
+            let offset = 44;
+            for (let i = 0; i < length; i++) {
+                const sample = Math.max(-1, Math.min(1, channelData[i]));
+                view.setInt16(offset, sample * 32767, true);
+                offset += 2;
+            }
+            
+            return result;
+        }
+        
+        function playAudioResponse(audioBase64, format) {
+            try {
+                const audioPlayer = document.getElementById('audioPlayer');
+                const audioStatus = document.getElementById('audioStatus');
+                
+                // Convert base64 to blob
+                const audioData = atob(audioBase64);
+                const audioArray = new Uint8Array(audioData.length);
+                for (let i = 0; i < audioData.length; i++) {
+                    audioArray[i] = audioData.charCodeAt(i);
+                }
+                
+                const audioBlob = new Blob([audioArray], { type: `audio/${format}` });
+                const audioUrl = URL.createObjectURL(audioBlob);
+                
+                audioPlayer.src = audioUrl;
+                audioPlayer.style.display = 'block';
+                audioStatus.textContent = 'Agent response audio ready';
+                
+                // Auto-play if possible
+                audioPlayer.play().then(() => {
+                    log('🔊 Playing agent response audio', 'success');
+                    updateStatus(document.getElementById('voiceStatus'), 'processing', 'Speaking...');
+                }).catch((error) => {
+                    log(`⚠️ Auto-play blocked: ${error.message}`, 'error');
+                    audioStatus.textContent = 'Click play button to hear response';
+                });
+                
+                audioPlayer.onended = () => {
+                    updateStatus(document.getElementById('voiceStatus'), 'idle', 'Idle');
+                    URL.revokeObjectURL(audioUrl);
+                };
+                
+            } catch (error) {
+                log(`❌ Audio playback error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Utility functions
+        function sendHealthCheck() {
+            if (socket && socket.connected) {
+                socket.emit('health_check');
+                log('💓 Sent health check', 'info');
+            } else {
+                log('❌ Cannot send health check: not connected', 'error');
+            }
+        }
+        
+        function resetConversation() {
+            if (socket && socket.connected) {
+                socket.emit('reset_conversation');
+                log('🔄 Sent conversation reset', 'info');
+            } else {
+                log('❌ Cannot reset conversation: not connected', 'error');
+            }
+        }
+        
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+        
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '';
+        }
+        
+        // Initialize page
+        window.onload = () => {
+            log('🚀 United Voice Agent Test Page Loaded', 'success');
+            log('Ready to test complete audio flow', 'info');
+            
+            // Update test progress
+            document.getElementById('testText').textContent = 'Page loaded - ready to test';
+            
+            // Auto-connect
+            setTimeout(() => {
+                connectSocket();
+            }, 1000);
+        };
+        
+        // Cleanup on page unload
+        window.onbeforeunload = () => {
+            if (isRecording) {
+                stopRecording();
+            }
+            if (socket) {
+                socket.disconnect();
+            }
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Project specific
+audio/*.wav
+audio/*.mp3
+models/
+*.log
+.env
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Gradio
+flagged/
+gradio_cached_examples/
+
+# Production
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Deployment
+.vercel
+.railway
+render.yaml
+railway.json
+
+# Security & Secrets
+*.pem
+*.key
+secrets/
+config/secrets/
+
+# Build artifacts
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Coverage reports
+coverage/
+htmlcov/
+.nyc_output
+.coverage
+coverage.xml
+test-results.xml
+junit.xml
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Editor backups
+*~
+.#*
+#*#

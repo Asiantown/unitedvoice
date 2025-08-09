@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Connection Test</title>
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>WebSocket Connection Test</h1>
+    <div id="status">Connecting...</div>
+    <div id="messages"></div>
+    
+    <script>
+        const socket = io('http://localhost:8000', {
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionAttempts: 5
+        });
+        
+        const statusEl = document.getElementById('status');
+        const messagesEl = document.getElementById('messages');
+        
+        function addMessage(msg) {
+            const p = document.createElement('p');
+            p.textContent = `[${new Date().toISOString()}] ${msg}`;
+            messagesEl.appendChild(p);
+        }
+        
+        socket.on('connect', () => {
+            statusEl.textContent = '✅ Connected to WebSocket server';
+            statusEl.style.color = 'green';
+            addMessage('Connected successfully!');
+        });
+        
+        socket.on('connected', (data) => {
+            addMessage(`Server message: ${JSON.stringify(data)}`);
+        });
+        
+        socket.on('agent_response', (data) => {
+            addMessage(`Agent response: ${data.text}`);
+        });
+        
+        socket.on('disconnect', () => {
+            statusEl.textContent = '❌ Disconnected from WebSocket server';
+            statusEl.style.color = 'red';
+            addMessage('Disconnected');
+        });
+        
+        socket.on('connect_error', (error) => {
+            statusEl.textContent = `❌ Connection error: ${error.message}`;
+            statusEl.style.color = 'red';
+            addMessage(`Connection error: ${error.message}`);
+        });
+        
+        // Test health check after connection
+        socket.on('connect', () => {
+            setTimeout(() => {
+                socket.emit('health_check');
+                addMessage('Sent health check request');
+            }, 1000);
+        });
+        
+        socket.on('health_response', (data) => {
+            addMessage(`Health check response: ${JSON.stringify(data)}`);
+        });
+    </script>
+</body>
+</html>

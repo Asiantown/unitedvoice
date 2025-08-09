@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Page Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: #1a1a1a; 
+            color: white; 
+        }
+        .container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+        }
+        .test-result { 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 5px; 
+        }
+        .success { background: #155724; color: #d4edda; }
+        .error { background: #721c24; color: #f8d7da; }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #333;
+            border-radius: 5px;
+        }
+        .status {
+            padding: 10px;
+            background: #333;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Voice Page Test</h1>
+        <div class="status">
+            <p>Testing the voice page at: <strong>http://localhost:3001/voice</strong></p>
+            <p>If you see a blank page below, there's an issue with the React component.</p>
+        </div>
+        
+        <div class="test-result">
+            <h3>Voice Page Preview:</h3>
+            <iframe src="http://localhost:3001/voice" title="Voice Page Test"></iframe>
+        </div>
+        
+        <div class="status">
+            <h3>Browser Console Instructions:</h3>
+            <p>1. Right-click on the iframe above</p>
+            <p>2. Select "Inspect Element" or press F12</p>
+            <p>3. Go to the Console tab</p>
+            <p>4. Look for any red error messages</p>
+            <p>5. Common errors might include:</p>
+            <ul>
+                <li>Import/Export errors</li>
+                <li>Hydration mismatches</li>
+                <li>WebSocket connection issues</li>
+                <li>Missing dependencies</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Test if the page loads successfully
+        const iframe = document.querySelector('iframe');
+        let loadTimeout;
+
+        iframe.onload = function() {
+            clearTimeout(loadTimeout);
+            console.log('Voice page loaded successfully');
+            
+            try {
+                // Check if content is visible in iframe
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                const body = iframeDoc.body;
+                
+                if (body && body.innerHTML.trim()) {
+                    console.log('✅ Voice page has content');
+                } else {
+                    console.log('❌ Voice page appears empty');
+                }
+            } catch (e) {
+                console.log('Cannot access iframe content due to same-origin policy, but page loaded');
+            }
+        };
+
+        iframe.onerror = function() {
+            clearTimeout(loadTimeout);
+            console.log('❌ Voice page failed to load');
+        };
+
+        // Set a timeout to detect if page never loads
+        loadTimeout = setTimeout(() => {
+            console.log('❌ Voice page load timeout');
+        }, 10000);
+    </script>
+</body>
+</html>

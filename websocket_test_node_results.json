@@ -1,0 +1,179 @@
+{
+  "timestamp": "2025-08-08T06:56:09.736Z",
+  "summary": {
+    "totalTests": 7,
+    "connectionSuccessful": false,
+    "receivedConnectedEvent": false,
+    "receivedGreeting": false,
+    "errorsEncountered": 2,
+    "warningsEncountered": 3,
+    "totalLogEntries": 19
+  },
+  "detailedResults": [
+    {
+      "timestamp": "2025-08-08T06:55:46.792Z",
+      "level": "info",
+      "message": "Testing basic connection...",
+      "data": null
+    },
+    {
+      "timestamp": "2025-08-08T06:55:53.718Z",
+      "level": "success",
+      "message": "Successfully connected to WebSocket server",
+      "data": {
+        "socketId": "Eng_lXKPDYNhnzoNAAAM",
+        "transport": "websocket"
+      }
+    },
+    {
+      "timestamp": "2025-08-08T06:55:53.718Z",
+      "level": "info",
+      "message": "Testing event handling...",
+      "data": null
+    },
+    {
+      "timestamp": "2025-08-08T06:55:58.720Z",
+      "level": "warning",
+      "message": "Event handling test completed. Received 0/2 expected events",
+      "data": null
+    },
+    {
+      "timestamp": "2025-08-08T06:55:58.720Z",
+      "level": "info",
+      "message": "Testing message exchange...",
+      "data": null
+    },
+    {
+      "timestamp": "2025-08-08T06:55:58.720Z",
+      "level": "info",
+      "message": "Sending mock audio data...",
+      "data": null
+    },
+    {
+      "timestamp": "2025-08-08T06:55:58.724Z",
+      "level": "info",
+      "message": "Received status update",
+      "data": {
+        "status": "processing",
+        "message": "Processing your audio..."
+      }
+    },
+    {
+      "timestamp": "2025-08-08T06:55:58.911Z",
+      "level": "error",
+      "message": "Received error event",
+      "data": {
+        "message": "No speech detected or audio was filtered. Please speak clearly and try again.",
+        "timestamp": "2025-08-08T06:55:58.910144"
+      }
+    },
+    {
+      "timestamp": "2025-08-08T06:56:08.722Z",
+      "level": "warning",
+      "message": "No response received for audio data test",
+      "data": null
+    },
+    {
+      "timestamp": "2025-08-08T06:56:08.724Z",
+      "level": "info",
+      "message": "Testing health check...",
+      "data": null
+    },
+    {
+      "timestamp": "2025-08-08T06:56:08.727Z",
+      "level": "success",
+      "message": "Received health response",
+      "data": {
+        "status": "healthy",
+        "active_sessions": 1,
+        "timestamp": "2025-08-08T06:56:08.725730"
+      }
+    },
+    {
+      "timestamp": "2025-08-08T06:56:08.727Z",
+      "level": "info",
+      "message": "Testing session state...",
+      "data": null
+    },
+    {
+      "timestamp": "2025-08-08T06:56:08.730Z",
+      "level": "success",
+      "message": "Received session state",
+      "data": {
+        "booking_state": "greeting",
+        "booking_info": {
+          "session_id": "",
+          "created_at": "2025-08-08T01:55:50.881639",
+          "last_updated": "2025-08-08T01:55:50.881650",
+          "customer": {
+            "first_name": null,
+            "last_name": null,
+            "email": null,
+            "phone": null,
+            "frequent_flyer_number": null
+          },
+          "trip": {
+            "departure_city": null,
+            "arrival_city": null,
+            "departure_date": null,
+            "return_date": null,
+            "departure_time": null,
+            "return_time": null,
+            "passenger_count": null,
+            "cabin_class": null,
+            "trip_type": null,
+            "confirmation_number": null,
+            "outbound_flight": null,
+            "return_flight": null
+          },
+          "conversation_history": []
+        },
+        "conversation_length": 0
+      }
+    },
+    {
+      "timestamp": "2025-08-08T06:56:08.730Z",
+      "level": "info",
+      "message": "Testing error handling...",
+      "data": null
+    },
+    {
+      "timestamp": "2025-08-08T06:56:08.731Z",
+      "level": "error",
+      "message": "Received error event",
+      "data": {
+        "message": "No audio data provided"
+      }
+    },
+    {
+      "timestamp": "2025-08-08T06:56:08.732Z",
+      "level": "info",
+      "message": "Received error event (expected for invalid data)",
+      "data": {
+        "message": "No audio data provided"
+      }
+    },
+    {
+      "timestamp": "2025-08-08T06:56:08.732Z",
+      "level": "info",
+      "message": "Testing graceful disconnection...",
+      "data": null
+    },
+    {
+      "timestamp": "2025-08-08T06:56:09.734Z",
+      "level": "warning",
+      "message": "Disconnected from server",
+      "data": {
+        "reason": "io client disconnect"
+      }
+    },
+    {
+      "timestamp": "2025-08-08T06:56:09.734Z",
+      "level": "success",
+      "message": "Successfully disconnected",
+      "data": {
+        "reason": "io client disconnect"
+      }
+    }
+  ]
+}
