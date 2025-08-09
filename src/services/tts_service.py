@@ -59,7 +59,8 @@ class TTSService:
             self._setup_pyttsx3()
         
         if not self.elevenlabs_client and not self.pyttsx3_engine:
-            raise RuntimeError("No TTS engines available. Install elevenlabs-python or pyttsx3")
+            logger.warning("No TTS engines available - TTS will be disabled")
+            # Don't raise error - just disable TTS
     
     def _setup_elevenlabs(self):
         """Setup ElevenLabs TTS client"""

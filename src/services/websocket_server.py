@@ -100,7 +100,10 @@ class WebSocketVoiceAgent:
             self.voice_agent = UnitedVoiceAgent()
         except Exception as e:
             logger.error(f"Failed to initialize UnitedVoiceAgent: {e}")
-            self.voice_agent = None
+            # Use mock agent as fallback
+            from src.services.mock_agent import MockVoiceAgent
+            self.voice_agent = MockVoiceAgent()
+            logger.warning("Using MockVoiceAgent - API keys not configured")
         
         try:
             api_key = settings.groq.api_key or os.getenv('GROQ_API_KEY')

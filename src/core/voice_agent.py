@@ -125,7 +125,7 @@ class UnitedVoiceAgent:
         """Initialize Speech-to-Text with Groq Whisper Turbo"""
         print("Setting up Speech-to-Text...")
         try:
-            groq_api_key = settings.groq.api_key or os.getenv('GROQ_API_KEY')
+            groq_api_key = os.getenv('GROQ_API_KEY') or settings.groq.api_key
             if not groq_api_key:
                 raise Exception("Missing GROQ_API_KEY for Whisper")
             
@@ -151,7 +151,7 @@ class UnitedVoiceAgent:
         """Initialize Language Model with Groq"""
         print("Setting up Language Model...")
         try:
-            groq_api_key = settings.groq.api_key or os.getenv('GROQ_API_KEY')
+            groq_api_key = os.getenv('GROQ_API_KEY') or settings.groq.api_key
             if not groq_api_key:
                 print("⚠️  GROQ_API_KEY not found - LLM disabled")
                 self.groq_client = None
