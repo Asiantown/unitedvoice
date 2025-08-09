@@ -90,7 +90,6 @@
     "NEXT_PUBLIC_MAX_RECONNECT_ATTEMPTS": "@next_public_max_reconnect_attempts",
     "NEXT_PUBLIC_RECONNECT_DELAY": "@next_public_reconnect_delay"
   },
-  "regions": ["iad1", "sfo1"],
   "github": {
     "silent": true
   }
