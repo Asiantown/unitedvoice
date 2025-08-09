@@ -143,7 +143,7 @@ class UnitedVoiceAgent:
             print(f"   {explanation}")
             
             # Log detailed status for debugging
-            logger.warning(f"STT fallback status: {status}")
+            self.logger.warning(f"STT fallback status: {status}")
         
         # Audio settings
         self.sample_rate = settings.whisper.sample_rate
@@ -154,7 +154,9 @@ class UnitedVoiceAgent:
         """Initialize Language Model with Groq and fallback handling"""
         print("Setting up Language Model...")
         
-        groq_api_key = os.getenv('GROQ_API_KEY') or settings.groq.api_key
+        # Use robust environment loading
+        from ..utils.env_loader import load_groq_api_key
+        groq_api_key = settings.groq.api_key or load_groq_api_key()
         
         if not groq_api_key:
             print("⚠️  GROQ_API_KEY not found")
@@ -584,7 +586,7 @@ You're not just an assistant - you're a helpful human who loves making travel ea
                 response_text = response['message']['content']
                 
             except Exception as e:
-                logger.error(f"Groq LLM failed: {e}")
+                self.logger.error(f"Groq LLM failed: {e}")
                 # Fall back to simple responses
                 response_text = self._get_fallback_response(user_input, booking_response, state_info)
                 
@@ -611,7 +613,7 @@ You're not just an assistant - you're a helpful human who loves making travel ea
                 booking_response, 
                 self.booking_flow.state
             )
-            logger.info(f"Using enhanced booking response: {enhanced[:50]}...")
+            self.logger.info(f"Using enhanced booking response: {enhanced[:50]}...")
             return enhanced
         
         # Generate a basic response using fallback service
@@ -629,7 +631,7 @@ You're not just an assistant - you're a helpful human who loves making travel ea
             context
         )
         
-        logger.info(f"Using fallback LLM response: {response[:50]}...")
+        self.logger.info(f"Using fallback LLM response: {response[:50]}...")
         return response
     
     def _build_booking_context(self, booking_info) -> str:

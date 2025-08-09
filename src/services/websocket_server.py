@@ -106,7 +106,9 @@ class WebSocketVoiceAgent:
             logger.warning("Using MockVoiceAgent - API keys not configured")
         
         try:
-            api_key = settings.groq.api_key or os.getenv('GROQ_API_KEY')
+            # Use robust environment loading for fallback
+            from ..utils.env_loader import load_groq_api_key
+            api_key = settings.groq.api_key or load_groq_api_key()
             if api_key:
                 self.whisper_client = GroqWhisperClient(api_key=api_key)
             else:

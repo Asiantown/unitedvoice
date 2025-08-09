@@ -97,7 +97,9 @@ async def startup_event():
     """Initialize services on startup"""
     global whisper_client
     try:
-        groq_api_key = settings.groq.api_key or os.getenv('GROQ_API_KEY')
+        # Use robust environment loading for fallback
+        from ..utils.env_loader import load_groq_api_key
+        groq_api_key = settings.groq.api_key or load_groq_api_key()
         if groq_api_key:
             whisper_client = GroqWhisperClient(api_key=groq_api_key)
             logger.info("Whisper client initialized successfully")
@@ -111,7 +113,9 @@ def init_services():
     """Initialize services"""
     global whisper_client
     try:
-        groq_api_key = settings.groq.api_key or os.getenv('GROQ_API_KEY')
+        # Use robust environment loading for fallback
+        from ..utils.env_loader import load_groq_api_key
+        groq_api_key = settings.groq.api_key or load_groq_api_key()
         if groq_api_key:
             whisper_client = GroqWhisperClient(api_key=groq_api_key)
             logger.info("Whisper client initialized successfully")

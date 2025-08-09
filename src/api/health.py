@@ -139,9 +139,9 @@ async def detailed_health_check():
         "system": {
             "python_version": f"{os.sys.version_info.major}.{os.sys.version_info.minor}.{os.sys.version_info.micro}",
             "environment_vars": {
-                "GROQ_API_KEY": "configured" if os.getenv("GROQ_API_KEY") else "missing",
-                "ELEVENLABS_API_KEY": "configured" if os.getenv("ELEVENLABS_API_KEY") else "missing",
-                "SERPAPI_API_KEY": "configured" if os.getenv("SERPAPI_API_KEY") else "missing",
+                "GROQ_API_KEY": "configured" if (os.getenv("GROQ_API_KEY") or settings.groq.api_key) else "missing",
+                "ELEVENLABS_API_KEY": "configured" if (os.getenv("ELEVENLABS_API_KEY") or settings.elevenlabs.api_key) else "missing",
+                "SERPAPI_API_KEY": "configured" if (os.getenv("SERPAPI_API_KEY") or settings.serpapi.api_key) else "missing",
                 "CORS_ORIGINS": "configured" if os.getenv("CORS_ORIGINS") else "missing",
                 "SSL_ENABLED": os.getenv("SSL_ENABLED", "false")
             }
@@ -165,8 +165,12 @@ async def readiness_probe():
     """Kubernetes/Docker readiness probe endpoint"""
     try:
         # Basic checks for readiness
-        required_env_vars = ["GROQ_API_KEY", "ELEVENLABS_API_KEY"]
-        missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+        # Check using settings which now uses robust environment loading
+        required_checks = {
+            "GROQ_API_KEY": settings.groq.api_key,
+            "ELEVENLABS_API_KEY": settings.elevenlabs.api_key
+        }
+        missing_vars = [var for var, value in required_checks.items() if not value]
         
         if missing_vars:
             return JSONResponse(

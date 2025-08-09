@@ -1,0 +1,83 @@
+{
+  "timestamp": "2025-08-09T17:52:33.272307",
+  "platform": "darwin",
+  "is_railway": false,
+  "railway_vars": {},
+  "groq_vars_found": {},
+  "access_methods_results": {
+    "methods": {
+      "os.getenv()": null,
+      "os.environ.get()": null,
+      "direct_access": "NOT_FOUND",
+      "subprocess_env": null
+    },
+    "railway_specific": {
+      "RAILWAY_GROQ_API_KEY": null,
+      "RLW_GROQ_API_KEY": null,
+      "APP_GROQ_API_KEY": null,
+      "SERVICE_GROQ_API_KEY": null
+    },
+    "case_variations": {
+      "groq_api_key": null,
+      "Groq_Api_Key": null,
+      "GROQ_api_key": null,
+      "groq_API_KEY": null
+    },
+    "prefixed_variations": {
+      "PRODUCTION_GROQ_API_KEY": null,
+      "PROD_GROQ_API_KEY": null,
+      "APP_GROQ_API_KEY": null,
+      "SERVICE_GROQ_API_KEY": null,
+      "BACKEND_GROQ_API_KEY": null
+    }
+  },
+  "config_files": {
+    ".env": {
+      "exists": true,
+      "size": 226,
+      "has_groq_key": true,
+      "lines": 3
+    },
+    ".env.local": {
+      "exists": false
+    },
+    ".env.production": {
+      "exists": false
+    },
+    ".env.railway": {
+      "exists": false
+    },
+    "railway.json": {
+      "exists": true,
+      "size": 710,
+      "has_groq_key": false,
+      "lines": 29
+    },
+    "nixpacks.toml": {
+      "exists": false
+    },
+    "Dockerfile": {
+      "exists": true,
+      "size": 1027,
+      "has_groq_key": false,
+      "lines": 44
+    },
+    "docker-compose.yml": {
+      "exists": true,
+      "size": 1263,
+      "has_groq_key": true,
+      "lines": 55
+    }
+  },
+  "api_test": {
+    "status": "no_key",
+    "message": "No API key available for testing"
+  },
+  "total_env_vars": 58,
+  "recommendations": [
+    "Update code to use robust environment variable loader",
+    "Verify GROQ_API_KEY is set correctly in Railway",
+    "Check API key validity and quota",
+    "Use Railway CLI to verify deployment environment"
+  ]
+}

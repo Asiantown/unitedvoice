@@ -57,6 +57,7 @@ class WebSocketConfig:
                 cors_origins = [
                     "https://unitedvoice-p41.vercel.app",  # Production Vercel URL
                     "https://unitedvoice-bke1yxntg-asiantowns-projects.vercel.app",  # Preview URL
+                    "https://unitedvoice9-kxbqooh3y-asiantowns-projects.vercel.app",  # New Vercel URL
                     "https://web-production-204e.up.railway.app",
                     "https://united-voice-agent.vercel.app"
                 ]
@@ -70,6 +71,7 @@ class WebSocketConfig:
                         expanded_origins.extend([
                             "https://unitedvoice-p41.vercel.app",
                             "https://unitedvoice-bke1yxntg-asiantowns-projects.vercel.app",
+                            "https://unitedvoice9-kxbqooh3y-asiantowns-projects.vercel.app",
                             "https://united-voice-agent.vercel.app"
                         ])
                     elif "*.railway.app" in origin:

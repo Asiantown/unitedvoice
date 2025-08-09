@@ -1,8 +1,19 @@
 """Configuration settings for United Voice Agent"""
 
 import os
+import logging
 from dataclasses import dataclass
 from typing import Optional
+try:
+    from ..utils.env_loader import load_groq_api_key, load_elevenlabs_api_key, load_serpapi_key, validate_api_keys
+except ImportError:
+    # Fallback for when running from different contexts
+    import sys
+    import os
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+    from utils.env_loader import load_groq_api_key, load_elevenlabs_api_key, load_serpapi_key, validate_api_keys
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -68,17 +79,44 @@ class Settings:
     
     @classmethod
     def from_env(cls) -> "Settings":
-        """Load settings from environment variables"""
+        """Load settings from environment variables using robust loader"""
+        
+        # Load API keys using robust environment loader
+        groq_key = load_groq_api_key()
+        elevenlabs_key = load_elevenlabs_api_key()
+        serpapi_key = load_serpapi_key()
+        
+        # Validate API keys and log issues
+        validation_issues = validate_api_keys()
+        if validation_issues:
+            logger.warning(f"API key validation issues: {', '.join(validation_issues)}")
+        
+        # Log successful key detection (without exposing the keys)
+        if groq_key:
+            logger.info("GROQ_API_KEY detected successfully")
+        else:
+            logger.warning("GROQ_API_KEY not found - transcription will be disabled")
+        
+        if elevenlabs_key:
+            logger.info("ELEVENLABS_API_KEY detected successfully")
+        else:
+            logger.info("ELEVENLABS_API_KEY not found - TTS will use fallback")
+        
+        if serpapi_key:
+            logger.info("SERPAPI_API_KEY detected successfully")
+        else:
+            logger.info("SERPAPI_API_KEY not found - flight search will use mock data")
+        
         return cls(
             whisper=WhisperConfig(),
             elevenlabs=ElevenLabsConfig(
-                api_key=os.getenv('ELEVENLABS_API_KEY')
+                api_key=elevenlabs_key
             ),
             groq=GroqConfig(
-                api_key=os.getenv('GROQ_API_KEY')
+                api_key=groq_key
             ),
             serpapi=SerpApiConfig(
-                api_key=os.getenv('SERPAPI_API_KEY')
+                api_key=serpapi_key
             ),
             flight_api=FlightAPIConfig(
                 use_real_api=os.getenv('FLIGHT_API_USE_REAL', 'true').lower() == 'true',
