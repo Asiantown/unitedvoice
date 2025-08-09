@@ -96,10 +96,22 @@ class WebSocketVoiceAgent:
     
     def __init__(self, session_id: str):
         self.session_id = session_id
-        self.voice_agent = UnitedVoiceAgent()
-        self.whisper_client = GroqWhisperClient(
-            api_key=settings.groq.api_key or os.getenv('GROQ_API_KEY')
-        )
+        try:
+            self.voice_agent = UnitedVoiceAgent()
+        except Exception as e:
+            logger.error(f"Failed to initialize UnitedVoiceAgent: {e}")
+            self.voice_agent = None
+        
+        try:
+            api_key = settings.groq.api_key or os.getenv('GROQ_API_KEY')
+            if api_key:
+                self.whisper_client = GroqWhisperClient(api_key=api_key)
+            else:
+                logger.warning("GROQ_API_KEY not found - transcription disabled")
+                self.whisper_client = None
+        except Exception as e:
+            logger.error(f"Failed to initialize WhisperClient: {e}")
+            self.whisper_client = None
         
         # Initialize TTS service
         self.tts_service = get_tts_service()
