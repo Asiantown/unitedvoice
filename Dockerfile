@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY src/ ./src/
 COPY start_websocket.py .
-COPY .env.production.template .env.template
+# Environment variables should be set via Railway/hosting platform, not .env files
 
 # Create necessary directories and set permissions
 RUN mkdir -p /app/logs /app/temp && \
