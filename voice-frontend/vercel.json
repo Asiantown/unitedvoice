@@ -75,21 +75,6 @@
       "permanent": false
     }
   ],
-  "env": {
-    "NEXT_PUBLIC_WS_URL": "@next_public_ws_url",
-    "NEXT_PUBLIC_API_BASE_URL": "@next_public_api_base_url",
-    "NEXT_PUBLIC_ENVIRONMENT": "@next_public_environment",
-    "NEXT_PUBLIC_ENABLE_ANALYTICS": "@next_public_enable_analytics",
-    "NEXT_PUBLIC_ENABLE_DEBUG": "@next_public_enable_debug",
-    "NEXT_PUBLIC_ENABLE_ADVANCED_FEATURES": "@next_public_enable_advanced_features",
-    "NEXT_PUBLIC_ENABLE_VOICE_VISUALIZATION": "@next_public_enable_voice_visualization",
-    "NEXT_PUBLIC_ENABLE_CONVERSATION_HISTORY": "@next_public_enable_conversation_history",
-    "NEXT_PUBLIC_ENABLE_SETTINGS": "@next_public_enable_settings",
-    "NEXT_PUBLIC_ENABLE_PREMIUM_FEATURES": "@next_public_enable_premium_features",
-    "NEXT_PUBLIC_AUDIO_QUALITY": "@next_public_audio_quality",
-    "NEXT_PUBLIC_MAX_RECONNECT_ATTEMPTS": "@next_public_max_reconnect_attempts",
-    "NEXT_PUBLIC_RECONNECT_DELAY": "@next_public_reconnect_delay"
-  },
   "github": {
     "silent": true
   }
