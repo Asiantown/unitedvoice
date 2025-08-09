@@ -1,1 +1,1 @@
-web: python simple_websocket_start.py
+web: python start_websocket.py
