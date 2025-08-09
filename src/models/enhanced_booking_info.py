@@ -1,5 +1,13 @@
 """
-Enhanced booking information model with confidence tracking and conversation history.
+Enhanced Booking Information Model
+
+Advanced booking data structure with confidence tracking, conversation history,
+and comprehensive field validation. Supports complex booking scenarios with
+multiple confidence levels and data source attribution.
+
+Author: United Airlines Voice Agent Team
+Version: 2.0.0
+Python Version: 3.8+
 """
 
 from dataclasses import dataclass, field
@@ -10,16 +18,44 @@ import json
 
 @dataclass
 class ConfidenceScore:
-    """Represents a value with an associated confidence score."""
+    """
+    Represents a value with metadata about its reliability and source.
+    
+    This class tracks not only the data value but also confidence metrics
+    and provenance information for better decision making.
+    
+    Attributes:
+        value: The actual data value
+        confidence: Confidence score from 0.0 to 1.0
+        source: Data source identifier
+        timestamp: When this value was recorded
+    """
     value: Any
-    confidence: float = 0.0  # 0.0 to 1.0
-    source: str = "user_input"  # user_input, inference, validation, etc.
+    confidence: float = 0.0  # Range: 0.0 (no confidence) to 1.0 (full confidence)
+    source: str = "user_input"  # Sources: user_input, inference, validation, api, etc.
     timestamp: datetime = field(default_factory=datetime.now)
+    
+    def __post_init__(self) -> None:
+        """Validate confidence score is within valid range."""
+        if not 0.0 <= self.confidence <= 1.0:
+            raise ValueError(f"Confidence must be between 0.0 and 1.0, got {self.confidence}")
 
 
 @dataclass
 class CustomerDetails:
-    """Customer information with confidence tracking."""
+    """
+    Customer information with confidence-based field tracking.
+    
+    Maintains customer data with associated confidence scores for each field,
+    enabling intelligent handling of uncertain or partial information.
+    
+    Attributes:
+        first_name: Customer's first name with confidence
+        last_name: Customer's last name with confidence
+        email: Customer's email address with confidence
+        phone: Customer's phone number with confidence
+        frequent_flyer_number: Loyalty program number with confidence
+    """
     first_name: Optional[ConfidenceScore] = None
     last_name: Optional[ConfidenceScore] = None
     email: Optional[ConfidenceScore] = None
@@ -27,16 +63,44 @@ class CustomerDetails:
     frequent_flyer_number: Optional[ConfidenceScore] = None
     
     def get_full_name(self) -> Optional[str]:
-        """Get full name if both first and last name are available."""
+        """
+        Get full name if both first and last name are available.
+        
+        Returns:
+            Formatted full name string or None if incomplete
+        """
         if self.first_name and self.last_name:
             return f"{self.first_name.value} {self.last_name.value}"
         return None
     
     def get_name_confidence(self) -> float:
-        """Get the minimum confidence between first and last name."""
+        """
+        Get the minimum confidence between first and last name.
+        
+        Returns:
+            Lowest confidence score between name components (0.0-1.0)
+        """
         if self.first_name and self.last_name:
             return min(self.first_name.confidence, self.last_name.confidence)
+        elif self.first_name:
+            return self.first_name.confidence * 0.5  # Partial name penalty
+        elif self.last_name:
+            return self.last_name.confidence * 0.5  # Partial name penalty
         return 0.0
+    
+    def has_complete_name(self, min_confidence: float = 0.7) -> bool:
+        """
+        Check if customer has a complete name with sufficient confidence.
+        
+        Args:
+            min_confidence: Minimum required confidence level
+            
+        Returns:
+            True if both names exist with sufficient confidence
+        """
+        return (self.first_name is not None and 
+                self.last_name is not None and
+                self.get_name_confidence() >= min_confidence)
 
 
 @dataclass
@@ -415,5 +479,10 @@ class EnhancedBookingInfo:
         }
     
     def to_json(self) -> str:
-        """Convert to JSON string."""
-        return json.dumps(self.to_dict(), indent=2)
+        """
+        Convert to JSON string representation.
+        
+        Returns:
+            Formatted JSON string with all booking information
+        """
+        return json.dumps(self.to_dict(), indent=2, default=str)  # Handle datetime serialization

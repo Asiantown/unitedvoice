@@ -1,86 +1,146 @@
 #!/usr/bin/env python3
 """
 United Airlines Voice Agent with Booking Flow
-Complete voice-enabled flight booking system
+
+A comprehensive voice-enabled flight booking system that provides:
+- Natural language processing for flight booking conversations
+- Real-time speech-to-text transcription via Groq Whisper
+- Intelligent conversation flow management
+- Integration with flight search APIs
+- Text-to-speech response generation
+
+Author: United Airlines Voice Agent Team
+Version: 2.0.0
+Python Version: 3.8+
 """
 
+import json
+import logging
 import os
+import re
 import sys
 import time
+import wave
+from typing import Optional, Dict, Any, List
+
 try:
-    import sounddevice as sd
     import numpy as np
+    import sounddevice as sd
     AUDIO_AVAILABLE = True
 except ImportError:
     AUDIO_AVAILABLE = False
-    sd = None
     np = None
-from elevenlabs.client import ElevenLabs
+    sd = None
+    logging.warning("Audio dependencies not available. Running in text-only mode.")
+
 try:
     from elevenlabs import play as elevenlabs_play
+    from elevenlabs.client import ElevenLabs
 except ImportError:
     elevenlabs_play = None
-from src.services.groq_client import GroqClient
-from src.services.fallback_transcription import EnhancedGroqWhisperClient as GroqWhisperClient
-from src.services.fallback_llm import FallbackLLMService
-from src.config.settings import settings
-from dotenv import load_dotenv
-import json
-import wave
-import logging
-import re
+    ElevenLabs = None
+    logging.warning("ElevenLabs TTS not available.")
 
-# Import our booking components
+from dotenv import load_dotenv
+
+from src.config.settings import settings
 from src.core.booking_flow import BookingFlow, BookingState
+from src.services.fallback_llm import FallbackLLMService
+from src.services.fallback_transcription import EnhancedGroqWhisperClient as GroqWhisperClient
 from src.services.google_flights_api import GoogleFlightsAPI
+from src.services.groq_client import GroqClient
 
 # Load environment variables
 load_dotenv()
 
+# Configure module logger
+logger = logging.getLogger(__name__)
+
 
 class UnitedVoiceAgent:
-    """Complete voice agent with booking capabilities"""
+    """
+    Complete voice agent with booking capabilities for United Airlines.
     
-    def __init__(self):
-        """Initialize voice agent with all components"""
-        print("United Airlines AI Voice Agent")
-        print("="*50)
+    This class orchestrates the entire voice booking experience, including:
+    - Speech-to-text transcription
+    - Natural language understanding
+    - Flight search and booking logic
+    - Text-to-speech response generation
+    - Conversation state management
+    
+    Attributes:
+        booking_flow: Manages the booking conversation state
+        conversation_history: Maintains conversation context
+        whisper_client: Speech-to-text client
+        groq_client: Language model client
+        elevenlabs_client: Text-to-speech client
+        flight_api: Flight search API interface
+        fallback_llm: Fallback language model service
+    """
+    
+    def __init__(self) -> None:
+        """
+        Initialize the voice agent with all required components.
         
-        # Clear any persistent data on startup
+        Raises:
+            RuntimeError: If critical components fail to initialize
+        """
+        logger.info("Initializing United Airlines Voice Agent")
+        
+        # Clear any persistent data from previous sessions
         self._clear_persistent_data()
         
-        # Initialize components
-        self.setup_stt()
-        self.setup_llm()
-        self.setup_tts()
+        # Initialize core components
+        self._initialize_stt()
+        self._initialize_llm()
+        self._initialize_tts()
         
-        # Setup logging for debugging
-        logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger(__name__)
-        
-        # Initialize booking system
+        # Initialize business logic components
         self.booking_flow = BookingFlow()
-        
-        # Initialize fallback LLM service
         self.fallback_llm = FallbackLLMService()
         
-        # Initialize flight API (Google Flights via SerpApi)
-        try:
-            self.flight_api = GoogleFlightsAPI()
-            self.logger.info("Google Flights API initialized successfully")
-        except Exception as e:
-            self.logger.warning(f"Failed to initialize Google Flights API: {e}")
-            self.logger.warning("Flight search functionality will be limited")
-            self.flight_api = None
+        # Initialize flight search API with error handling
+        self.flight_api = self._initialize_flight_api()
         
-        # Conversation state
-        self.conversation_history = []
+        # Initialize conversation state
+        self.conversation_history: List[Dict[str, str]] = []
         
-        print("\nUnited Airlines Voice Agent Ready!")
-        print("="*50)
+        # Audio configuration
+        self.sample_rate = settings.whisper.sample_rate
+        self.channels = settings.whisper.channels
+        self.stt_fallback_mode: Optional[str] = None
+        
+        logger.info("United Airlines Voice Agent initialized successfully")
     
-    def _clean_markdown_for_voice(self, text):
-        """Clean markdown formatting from text for voice output"""
+    def _initialize_flight_api(self) -> Optional[GoogleFlightsAPI]:
+        """
+        Initialize flight search API service.
+        
+        Returns:
+            GoogleFlightsAPI instance if successful, None if failed
+        """
+        try:
+            flight_api = GoogleFlightsAPI()
+            logger.info("Google Flights API initialized successfully")
+            return flight_api
+        except Exception as e:
+            logger.warning(f"Failed to initialize Google Flights API: {e}")
+            logger.warning("Flight search will use fallback mock data")
+            return None
+    
+    def _clean_markdown_for_voice(self, text: str) -> str:
+        """
+        Remove markdown formatting from text for voice output.
+        
+        Cleans various markdown elements that would sound awkward when
+        spoken aloud via text-to-speech.
+        
+        Args:
+            text: Input text that may contain markdown formatting
+            
+        Returns:
+            Cleaned text suitable for TTS
+        """
         if not text:
             return text
         
@@ -88,7 +148,7 @@ class UnitedVoiceAgent:
         text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
         text = re.sub(r'__(.+?)__', r'\1', text)
         
-        # Remove markdown italic formatting (*text* and _text_) - simpler approach
+        # Remove markdown italic formatting (*text* and _text_)
         # Handle single asterisks that aren't part of double asterisks
         text = re.sub(r'\*([^*]+?)\*', r'\1', text)
         text = re.sub(r'\b_([^_]+?)_\b', r'\1', text)
@@ -114,113 +174,29 @@ class UnitedVoiceAgent:
         
         return text.strip()
     
-    def _clear_persistent_data(self):
-        """Clear any persistent data from previous sessions"""
-        # Clear any temporary files
+    def _clear_persistent_data(self) -> None:
+        """
+        Clear any persistent data from previous sessions.
+        
+        This includes temporary audio files and cached data that might
+        interfere with the current session.
+        """
         import glob
-        temp_files = glob.glob("temp_audio*.wav")
-        for f in temp_files:
-            try:
-                os.remove(f)
-            except:
-                pass
-    
-    def setup_stt(self):
-        """Initialize Speech-to-Text with enhanced fallback mechanisms"""
-        print("Setting up Speech-to-Text...")
         
-        # Always create the enhanced client - it handles fallbacks internally
-        self.whisper_client = GroqWhisperClient()
-        
-        # Get status and explain to user
-        status = self.whisper_client.get_status()
-        
-        if status['groq_available']:
-            print("✓ STT ready (Groq Whisper Turbo)")
-        else:
-            print("⚠️  STT using fallback mode")
-            explanation = self.whisper_client.explain_fallback_to_user()
-            print(f"   {explanation}")
-            
-            # Log detailed status for debugging
-            self.logger.warning(f"STT fallback status: {status}")
-        
-        # Audio settings
-        self.sample_rate = settings.whisper.sample_rate
-        self.channels = settings.whisper.channels
-        self.stt_fallback_mode = "mock" if not status['groq_available'] else None
-    
-    def setup_llm(self):
-        """Initialize Language Model with Groq and fallback handling"""
-        print("Setting up Language Model...")
-        
-        # Use robust environment loading
-        from ..utils.env_loader import load_groq_api_key
-        groq_api_key = settings.groq.api_key or load_groq_api_key()
-        
-        if not groq_api_key:
-            print("⚠️  GROQ_API_KEY not found")
-            print("   App will continue with limited functionality")
-            print("   Responses will be basic but booking flow will work")
-            self.groq_client = None
-            self.llm_available = False
-            return
-            
         try:
-            print("   Creating Groq client...")
-            self.groq_client = GroqClient(api_key=groq_api_key)
-            
-            print("   Testing connection...")
-            success, message = self.groq_client.test_connection()
-            
-            if success:
-                print("✓ LLM ready (Groq)")
-                self.llm_available = True
-            else:
-                print(f"⚠️  Groq connection failed: {message}")
-                print("   App will continue with basic responses")
-                self.groq_client = None
-                self.llm_available = False
-                
+            temp_files = glob.glob("temp_audio*.wav")
+            for file_path in temp_files:
+                try:
+                    os.remove(file_path)
+                    logger.debug(f"Removed temporary file: {file_path}")
+                except OSError as e:
+                    logger.warning(f"Failed to remove temporary file {file_path}: {e}")
         except Exception as e:
-            print(f"⚠️  LLM initialization error: {e}")
-            print("   App will continue with basic responses")
-            self.groq_client = None
-            self.llm_available = False
+            logger.warning(f"Error during persistent data cleanup: {e}")
     
-    def setup_tts(self):
-        """Initialize Text-to-Speech"""
-        print("Setting up Text-to-Speech...")
-        api_key = settings.elevenlabs.api_key or os.getenv('ELEVENLABS_API_KEY')
-        if not api_key:
-            print("Missing ELEVENLABS_API_KEY!")
-            sys.exit(1)
-        
-        self.elevenlabs_client = ElevenLabs(api_key=api_key)
-        self.tts_voice_id = self.get_voice_id(settings.elevenlabs.voice_name)
-        print("✓ TTS ready")
     
-    def get_voice_id(self, voice_name="Eric"):
-        """Get ElevenLabs voice ID"""
-        try:
-            response = self.elevenlabs_client.voices.get_all()
-            for voice in response.voices:
-                if voice.name == voice_name:
-                    return voice.voice_id
-            # If voice not found, use first available voice
-            if response.voices:
-                print(f"Voice '{voice_name}' not found, using '{response.voices[0].name}'")
-                return response.voices[0].voice_id
-            else:
-                raise Exception("No voices available")
-        except Exception as e:
-            print(f"Warning: Could not fetch voices: {e}")
-            # Try to use default voice ID from settings
-            default_id = getattr(settings.elevenlabs, 'voice_id', None)
-            if default_id:
-                return default_id
-            # Use a common default voice ID as last resort
-            return "21m00Tcm4TlvDq8ikWAM"  # Rachel voice
+    
+    
     
     def _store_mock_flights(self):
         """Store mock flight data for selection"""

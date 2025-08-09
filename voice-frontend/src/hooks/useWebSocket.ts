@@ -2,13 +2,41 @@ import { useEffect, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useVoiceStore } from '@/store/voiceStore';
 
+/**
+ * Configuration options for the WebSocket hook
+ */
 interface UseWebSocketConfig {
+  /** WebSocket server URL */
   url?: string;
+  /** Whether to auto-connect on mount */
   autoConnect?: boolean;
+  /** Number of reconnection attempts */
   reconnectionAttempts?: number;
+  /** Delay between reconnection attempts in milliseconds */
   reconnectionDelay?: number;
 }
 
+/**
+ * Data structure for audio transmission
+ */
+interface AudioData {
+  audio: string;
+  format: string;
+  timestamp: number;
+}
+
+/**
+ * Data structure for text messages
+ */
+interface TextMessage {
+  text: string;
+  timestamp: number;
+}
+
+/**
+ * All possible WebSocket event handlers
+ * These match the server-side events for type safety
+ */
 interface WebSocketEvents {
   // Connection events
   connect: () => void;
@@ -34,9 +62,16 @@ interface WebSocketEvents {
   error: (data: { error: string; code?: string; details?: Record<string, unknown> }) => void;
 }
 
+/**
+ * Custom hook for managing WebSocket connections to the voice agent server
+ * Provides connection management, event handling, and automatic reconnection
+ * 
+ * @param config - Configuration options for the WebSocket connection
+ * @returns WebSocket methods and connection state
+ */
 export const useWebSocket = (config: UseWebSocketConfig = {}) => {
   const {
-    url = 'http://localhost:8000',
+    url = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:8000',
     autoConnect = true,
     reconnectionAttempts = 5,
     reconnectionDelay = 1000,
@@ -55,13 +90,15 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
     connectionState,
   } = useVoiceStore();
 
-  // Initialize socket connection
-  const connect = useCallback(() => {
+  /**
+   * Initializes and connects to the WebSocket server
+   * @returns The connected socket instance
+   */
+  const connect = useCallback((): Socket | null => {
     if (socketRef.current?.connected) {
       return socketRef.current;
     }
 
-    console.log('Connecting to WebSocket server:', url);
     setConnectionState('connecting');
 
     const socket = io(url, {
@@ -71,19 +108,24 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
       reconnectionAttempts,
       reconnectionDelay,
       reconnectionDelayMax: 5000,
-      // maxReconnectionAttempts: reconnectionAttempts, // Not a valid socket.io option
     });
 
     // Connection event handlers
     socket.on('connect', () => {
-      console.log('WebSocket connected:', socket.id);
       setConnectionState('connected');
       setError(null);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('WebSocket connected:', socket.id);
+      }
     });
 
-    socket.on('disconnect', (reason) => {
-      console.log('WebSocket disconnected:', reason);
+    socket.on('disconnect', (reason: string) => {
       setConnectionState('disconnected');
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('WebSocket disconnected:', reason);
+      }
       
       if (reason === 'io server disconnect') {
         // Server initiated disconnect - attempt to reconnect
@@ -91,37 +133,55 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
       }
     });
 
-    socket.on('connect_error', (error) => {
-      console.error('WebSocket connection error:', error);
+    socket.on('connect_error', (error: Error) => {
       setConnectionState('error');
       setError(`Connection failed: ${error.message}`);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.error('WebSocket connection error:', error);
+      }
     });
 
-    socket.on('reconnect', (attemptNumber) => {
-      console.log(`WebSocket reconnected after ${attemptNumber} attempts`);
+    socket.on('reconnect', (attemptNumber: number) => {
       setConnectionState('connected');
       setError(null);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`WebSocket reconnected after ${attemptNumber} attempts`);
+      }
     });
 
-    socket.on('reconnect_attempt', (attemptNumber) => {
-      console.log(`WebSocket reconnection attempt ${attemptNumber}`);
+    socket.on('reconnect_attempt', (attemptNumber: number) => {
       setConnectionState('reconnecting');
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`WebSocket reconnection attempt ${attemptNumber}`);
+      }
     });
 
-    socket.on('reconnect_error', (error) => {
-      console.error('WebSocket reconnection error:', error);
+    socket.on('reconnect_error', (error: Error) => {
       setError(`Reconnection failed: ${error.message}`);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.error('WebSocket reconnection error:', error);
+      }
     });
 
     socket.on('reconnect_failed', () => {
-      console.error('WebSocket reconnection failed - max attempts reached');
       setConnectionState('error');
       setError('Connection failed - unable to reconnect to server');
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.error('WebSocket reconnection failed - max attempts reached');
+      }
     });
 
     // Voice agent event handlers
-    socket.on('transcription_result', (data) => {
-      console.log('Transcription result:', data);
+    socket.on('transcription_result', (data: { text: string; is_final: boolean; confidence?: number }) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Transcription result:', data);
+      }
+      
       addTranscription({
         text: data.text,
         isFinal: data.is_final,
@@ -130,8 +190,11 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
       });
     });
 
-    socket.on('agent_response', (data) => {
-      console.log('Agent response:', data);
+    socket.on('agent_response', (data: { text: string; audio_url?: string; metadata?: Record<string, unknown> }) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Agent response:', data);
+      }
+      
       addAgentResponse({
         text: data.text,
         audioUrl: data.audio_url,
@@ -140,8 +203,11 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
       });
     });
 
-    socket.on('tts_audio', (data) => {
-      console.log('TTS audio received:', data.format);
+    socket.on('tts_audio', (data: { audio_data: string; format: string; metadata?: Record<string, unknown> }) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('TTS audio received:', data.format);
+      }
+      
       addAudioToQueue({
         audioData: data.audio_data,
         format: data.format,
@@ -150,105 +216,155 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
       });
     });
 
-    socket.on('agent_state_change', (data) => {
-      console.log('Agent state change:', data.state);
+    socket.on('agent_state_change', (data: { state: string; metadata?: Record<string, unknown> }) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Agent state change:', data.state);
+      }
+      
       setAgentState(data.state, data.metadata);
     });
 
     // Audio event handlers
-    socket.on('audio_received', (data) => {
-      console.log('Audio received confirmation:', data);
-      if (!data.success) {
+    socket.on('audio_received', (data: { success: boolean; message?: string }) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Audio received confirmation:', data);
+      }
+      
+      if (!data.success && data.message) {
         setError(`Audio processing failed: ${data.message}`);
       }
     });
 
-    socket.on('audio_processing', (data) => {
-      console.log('Audio processing status:', data);
+    socket.on('audio_processing', (data: { status: string; progress?: number }) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Audio processing status:', data);
+      }
       // Could be used to show processing progress in UI
     });
 
     // System event handlers
-    socket.on('system_status', (data) => {
-      console.log('System status:', data);
+    socket.on('system_status', (data: { status: string; message?: string }) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('System status:', data);
+      }
+      
       if (data.status === 'error') {
         setError(data.message || 'System error occurred');
       }
     });
 
-    socket.on('error', (data) => {
-      console.error('WebSocket error event:', data);
+    socket.on('error', (data: { error: string; code?: string; details?: Record<string, unknown> }) => {
       setError(`Server error: ${data.error}`);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.error('WebSocket error event:', data);
+      }
     });
 
     socketRef.current = socket;
     return socket;
   }, [url, reconnectionAttempts, reconnectionDelay, setConnectionState, setError, addTranscription, addAgentResponse, addAudioToQueue, setAgentState]);
 
-  // Disconnect socket
-  const disconnect = useCallback(() => {
+  /**
+   * Disconnects from the WebSocket server and cleans up resources
+   */
+  const disconnect = useCallback((): void => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
     }
 
     if (socketRef.current) {
-      console.log('Disconnecting WebSocket');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Disconnecting WebSocket');
+      }
+      
       socketRef.current.disconnect();
       socketRef.current = null;
       setConnectionState('disconnected');
     }
   }, [setConnectionState]);
 
-  // Send audio data
-  const sendAudioData = useCallback((audioData: string, format: string = 'webm') => {
+  /**
+   * Sends audio data to the server
+   * @param audioData - Base64 encoded audio data
+   * @param format - Audio format (default: 'webm')
+   * @returns Success status
+   */
+  const sendAudioData = useCallback((audioData: string, format: string = 'webm'): boolean => {
     if (!socketRef.current?.connected) {
-      console.warn('Cannot send audio data - socket not connected');
       setError('Not connected to server');
       return false;
     }
 
     try {
-      socketRef.current.emit('audio_data', {
+      const audioPayload: AudioData = {
         audio: audioData,
         format,
         timestamp: Date.now(),
-      });
-      console.log('Audio data sent to server');
+      };
+      
+      socketRef.current.emit('audio_data', audioPayload);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Audio data sent to server');
+      }
+      
       return true;
     } catch (error) {
-      console.error('Failed to send audio data:', error);
-      setError('Failed to send audio data');
+      const errorMessage = 'Failed to send audio data';
+      setError(errorMessage);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.error(errorMessage, error);
+      }
+      
       return false;
     }
   }, [setError]);
 
-  // Send text message
-  const sendTextMessage = useCallback((text: string) => {
+  /**
+   * Sends a text message to the server
+   * @param text - The message text to send
+   * @returns Success status
+   */
+  const sendTextMessage = useCallback((text: string): boolean => {
     if (!socketRef.current?.connected) {
-      console.warn('Cannot send text message - socket not connected');
       setError('Not connected to server');
       return false;
     }
 
     try {
-      socketRef.current.emit('text_message', {
+      const textPayload: TextMessage = {
         text,
         timestamp: Date.now(),
-      });
-      console.log('Text message sent to server:', text);
+      };
+      
+      socketRef.current.emit('text_message', textPayload);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Text message sent to server:', text);
+      }
+      
       return true;
     } catch (error) {
-      console.error('Failed to send text message:', error);
-      setError('Failed to send text message');
+      const errorMessage = 'Failed to send text message';
+      setError(errorMessage);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.error(errorMessage, error);
+      }
+      
       return false;
     }
   }, [setError]);
 
-  // Send start recording signal
-  const startRecording = useCallback(() => {
+  /**
+   * Signals the server to start recording
+   * @returns Success status
+   */
+  const startRecording = useCallback((): boolean => {
     if (!socketRef.current?.connected) {
-      console.warn('Cannot start recording - socket not connected');
       return false;
     }
 
@@ -256,18 +372,26 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
       socketRef.current.emit('start_recording', {
         timestamp: Date.now(),
       });
-      console.log('Start recording signal sent');
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Start recording signal sent');
+      }
+      
       return true;
     } catch (error) {
-      console.error('Failed to send start recording signal:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to send start recording signal:', error);
+      }
       return false;
     }
   }, []);
 
-  // Send stop recording signal
-  const stopRecording = useCallback(() => {
+  /**
+   * Signals the server to stop recording
+   * @returns Success status
+   */
+  const stopRecording = useCallback((): boolean => {
     if (!socketRef.current?.connected) {
-      console.warn('Cannot stop recording - socket not connected');
       return false;
     }
 
@@ -275,27 +399,46 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
       socketRef.current.emit('stop_recording', {
         timestamp: Date.now(),
       });
-      console.log('Stop recording signal sent');
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Stop recording signal sent');
+      }
+      
       return true;
     } catch (error) {
-      console.error('Failed to send stop recording signal:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to send stop recording signal:', error);
+      }
       return false;
     }
   }, []);
 
-  // Generic emit function for custom events
-  const emit = useCallback((event: string, data: Record<string, unknown>) => {
+  /**
+   * Generic emit function for custom events
+   * @param event - Event name
+   * @param data - Event data
+   * @returns Success status
+   */
+  const emit = useCallback((event: string, data: Record<string, unknown>): boolean => {
     if (!socketRef.current?.connected) {
-      console.warn(`Cannot emit ${event} - socket not connected`);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`Cannot emit ${event} - socket not connected`);
+      }
       return false;
     }
 
     try {
       socketRef.current.emit(event, data);
-      console.log(`Event emitted: ${event}`, data);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Event emitted: ${event}`, data);
+      }
+      
       return true;
     } catch (error) {
-      console.error(`Failed to emit ${event}:`, error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error(`Failed to emit ${event}:`, error);
+      }
       return false;
     }
   }, []);

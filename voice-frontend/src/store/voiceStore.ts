@@ -299,7 +299,7 @@ export const useVoiceStore = create<VoiceStoreState>()(
     })),
     {
       name: 'voice-store',
-      partialize: (state: any) => ({
+      partialize: (state: VoiceStoreState) => ({
         // Only persist certain parts of the state
         conversation: state.conversation,
         agentState: state.agentState,

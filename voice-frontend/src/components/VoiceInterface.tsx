@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Settings, X, AlertCircle } from 'lucide-react';
 
@@ -15,35 +15,55 @@ import { Button } from '@/components/ui/button';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useConnectionStatus, useRecordingStatus } from '@/store/voiceStore';
 
+/**
+ * Props for the VoiceInterface component
+ */
 interface VoiceInterfaceProps {
+  /** Optional CSS class name */
   className?: string;
 }
 
-// Error Boundary Component
+/**
+ * Configuration for keyboard shortcuts
+ */
+interface KeyboardShortcuts {
+  settings: string;
+  fullscreen: string;
+  escape: string;
+}
+
+/**
+ * Error Boundary Component for handling React errors gracefully
+ */
 class VoiceErrorBoundary extends React.Component<
-  { children: React.ReactNode; onError?: (error: Error) => void },
+  { 
+    children: React.ReactNode; 
+    onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+  },
   { hasError: boolean; error: Error | null }
 > {
-  constructor(props: any) {
+  constructor(props: { children: React.ReactNode; onError?: (error: Error, errorInfo: React.ErrorInfo) => void }) {
     super(props);
     this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(error: Error) {
+  static getDerivedStateFromError(error: Error): { hasError: boolean; error: Error } {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Voice Interface Error:', error, errorInfo);
-    this.props.onError?.(error);
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Voice Interface Error:', error, errorInfo);
+    }
+    this.props.onError?.(error, errorInfo);
   }
 
-  render() {
+  render(): React.ReactNode {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="min-h-screen flex items-center justify-center bg-background" role="alert">
           <div className="glass-card p-8 max-w-md text-center">
-            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" aria-hidden="true" />
             <h2 className="text-xl font-semibold text-foreground mb-2">
               Something went wrong
             </h2>
@@ -53,6 +73,7 @@ class VoiceErrorBoundary extends React.Component<
             <Button
               onClick={() => window.location.reload()}
               variant="default"
+              aria-label="Refresh the page"
             >
               Refresh Page
             </Button>
@@ -65,54 +86,92 @@ class VoiceErrorBoundary extends React.Component<
   }
 }
 
-export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
+/**
+ * Main voice interface component with error boundaries and accessibility
+ * Provides the complete voice interaction UI including orb, controls, and conversation
+ */
+export const VoiceInterface: React.FC<VoiceInterfaceProps> = memo(({
   className = ''
 }) => {
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [hasAudioPermission, setHasAudioPermission] = useState(false);
+  // Component state
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [hasAudioPermission, setHasAudioPermission] = useState<boolean>(false);
   const [audioError, setAudioError] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
+  // Store selectors
   const { connectionState, error: wsError } = useConnectionStatus();
   const { recordingState } = useRecordingStatus();
   const isRecording = recordingState === 'recording';
 
-  // Initialize WebSocket connection
+  // WebSocket hook
   const {
     connect,
     disconnect,
     isConnected: wsConnected,
-    connectionState: wsConnectionState,
   } = useWebSocket();
+
+  // Keyboard shortcuts configuration
+  const keyboardShortcuts: KeyboardShortcuts = {
+    settings: ',',
+    fullscreen: 'F11',
+    escape: 'Escape'
+  };
+
+  /**
+   * Requests microphone permission from the user
+   */
+  const requestAudioPermission = useCallback(async (): Promise<void> => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100
+        }
+      });
+      
+      // Stop the stream immediately, we just needed permission
+      stream.getTracks().forEach(track => track.stop());
+      
+      setHasAudioPermission(true);
+      setAudioError(null);
+    } catch (error) {
+      const errorMessage = 'Microphone access is required for voice functionality';
+      setAudioError(errorMessage);
+      setHasAudioPermission(false);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Audio permission denied:', error);
+      }
+    }
+  }, []);
 
   // Request audio permissions on mount
   useEffect(() => {
-    const requestAudioPermission = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            sampleRate: 44100
-          }
-        });
-        
-        // Stop the stream immediately, we just needed permission
-        stream.getTracks().forEach(track => track.stop());
-        
-        setHasAudioPermission(true);
-        setAudioError(null);
-      } catch (error) {
-        console.error('Audio permission denied:', error);
-        setAudioError('Microphone access is required for voice functionality');
-        setHasAudioPermission(false);
-      }
-    };
-
     requestAudioPermission();
+  }, [requestAudioPermission]);
+
+  /**
+   * Toggles fullscreen mode
+   */
+  const toggleFullscreen = useCallback(async (): Promise<void> => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Fullscreen toggle failed:', error);
+      }
+    }
   }, []);
 
-  // Initialize WebSocket connection
+  // Initialize WebSocket connection when audio permission is granted
   useEffect(() => {
     if (hasAudioPermission && !wsConnected) {
       connect();
@@ -123,23 +182,29 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
     };
   }, [hasAudioPermission, connect, disconnect, wsConnected]);
 
-  // Keyboard shortcuts
+  // Handle keyboard shortcuts
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      // Ignore shortcuts if user is in an input field
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
       // Settings toggle (Cmd/Ctrl + ,)
-      if ((event.metaKey || event.ctrlKey) && event.key === ',') {
+      if ((event.metaKey || event.ctrlKey) && event.key === keyboardShortcuts.settings) {
         event.preventDefault();
         setIsSettingsOpen(prev => !prev);
       }
       
       // Fullscreen toggle (F11)
-      if (event.key === 'F11') {
+      if (event.key === keyboardShortcuts.fullscreen) {
         event.preventDefault();
         toggleFullscreen();
       }
       
       // Escape to close settings
-      if (event.key === 'Escape' && isSettingsOpen) {
+      if (event.key === keyboardShortcuts.escape && isSettingsOpen) {
         event.preventDefault();
         setIsSettingsOpen(false);
       }
@@ -147,21 +212,11 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isSettingsOpen]);
+  }, [isSettingsOpen, keyboardShortcuts, toggleFullscreen]);
 
-  const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
-    }
-  }, []);
-
-  // Handle fullscreen changes
+  // Handle fullscreen state changes
   useEffect(() => {
-    const handleFullscreenChange = () => {
+    const handleFullscreenChange = (): void => {
       setIsFullscreen(!!document.fullscreenElement);
     };
 
@@ -169,35 +224,45 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  const handleError = useCallback((error: Error) => {
-    console.error('Voice Interface Error:', error);
-    // Could send to analytics or error tracking service
+  /**
+   * Handles errors from the error boundary
+   */
+  const handleError = useCallback((error: Error, errorInfo: React.ErrorInfo): void => {
+    // In production, this could send to error tracking service
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Voice Interface Error:', error, errorInfo);
+    }
   }, []);
 
+  // Memoized error state
   const currentError = audioError || wsError;
 
   return (
     <VoiceErrorBoundary onError={handleError}>
-      <div className={`min-h-screen relative overflow-hidden bg-background ${className}`}>
-        {/* Ambient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-accent-purple/5 via-transparent to-accent-blue/5" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(59,130,246,0.1),transparent_50%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(168,85,247,0.1),transparent_50%)]" />
+      <main 
+        className={`min-h-screen relative overflow-hidden bg-background ${className}`}
+        role="main"
+        aria-label="United Voice Agent Interface"
+      >
+        {/* Ambient background - decorative only */}
+        <div className="absolute inset-0 bg-gradient-to-br from-accent-purple/5 via-transparent to-accent-blue/5" aria-hidden="true" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(59,130,246,0.1),transparent_50%)]" aria-hidden="true" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(168,85,247,0.1),transparent_50%)]" aria-hidden="true" />
 
         {/* Status Bar */}
-        <div className="relative z-20 p-4">
+        <header className="relative z-20 p-4">
           <StatusBar
             showNetworkQuality={true}
             showSessionDuration={true}
             compact={false}
             className="mb-0"
           />
-        </div>
+        </header>
 
         {/* Main Interface */}
         <div className="flex flex-1 min-h-0 relative z-10">
           {/* Central Voice Area */}
-          <div className="flex-1 flex flex-col items-center justify-center relative px-4">
+          <section className="flex-1 flex flex-col items-center justify-center relative px-4" aria-label="Voice interaction area">
             {/* 3D Orb */}
             <div className="mb-8 relative">
               <VoiceOrb 
@@ -215,6 +280,8 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.8 }}
                     className="absolute -bottom-16 left-1/2 transform -translate-x-1/2"
+                    role="img"
+                    aria-label="Audio waveform visualization"
                   >
                     <AudioWaveform
                       isRecording={isRecording}
@@ -274,10 +341,14 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
                 <kbd className="px-1 py-0.5 bg-muted rounded text-xs ml-1">F11</kbd> for fullscreen
               </p>
             </div>
-          </div>
+          </section>
 
           {/* Conversation Panel */}
-          <div className="w-80 xl:w-96 flex flex-col relative border-l border-border bg-card/30 backdrop-blur-sm">
+          <aside 
+            className="w-80 xl:w-96 flex flex-col relative border-l border-border bg-card/30 backdrop-blur-sm"
+            role="complementary"
+            aria-label="Conversation history"
+          >
             <div className="flex-1 min-h-0 p-4">
               <ConversationPanel
                 showTranscription={true}
@@ -286,7 +357,7 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
                 className="h-full"
               />
             </div>
-          </div>
+          </aside>
         </div>
 
         {/* Settings Button */}
@@ -300,9 +371,9 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
             size="icon"
             onClick={() => setIsSettingsOpen(true)}
             className="glass-button"
-            aria-label="Open settings"
+            aria-label="Open settings panel"
           >
-            <Settings className="w-4 h-4" />
+            <Settings className="w-4 h-4" aria-hidden="true" />
           </Button>
         </motion.div>
 
@@ -353,12 +424,12 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
           )}
         </AnimatePresence>
 
-        {/* Decorative elements for ambience */}
-        <div className="fixed top-1/4 left-10 w-2 h-2 bg-accent-purple rounded-full animate-pulse opacity-30 pointer-events-none" />
-        <div className="fixed top-1/3 right-10 w-1 h-1 bg-accent-blue rounded-full animate-pulse opacity-20 pointer-events-none" />
-        <div className="fixed bottom-1/4 left-1/4 w-1.5 h-1.5 bg-accent-pink rounded-full animate-pulse opacity-25 pointer-events-none" />
-        <div className="fixed bottom-1/3 right-1/3 w-1 h-1 bg-accent-green rounded-full animate-pulse opacity-15 pointer-events-none" />
-      </div>
+        {/* Decorative elements for ambience - purely visual */}
+        <div className="fixed top-1/4 left-10 w-2 h-2 bg-accent-purple rounded-full animate-pulse opacity-30 pointer-events-none" aria-hidden="true" />
+        <div className="fixed top-1/3 right-10 w-1 h-1 bg-accent-blue rounded-full animate-pulse opacity-20 pointer-events-none" aria-hidden="true" />
+        <div className="fixed bottom-1/4 left-1/4 w-1.5 h-1.5 bg-accent-pink rounded-full animate-pulse opacity-25 pointer-events-none" aria-hidden="true" />
+        <div className="fixed bottom-1/3 right-1/3 w-1 h-1 bg-accent-green rounded-full animate-pulse opacity-15 pointer-events-none" aria-hidden="true" />
+      </main>
     </VoiceErrorBoundary>
   );
-};
+});
