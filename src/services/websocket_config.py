@@ -46,16 +46,37 @@ class WebSocketConfig:
             if env_origins:
                 cors_origins.extend([origin.strip() for origin in env_origins.split(',')])
             
+            # Check for specific frontend URL
+            frontend_url = os.getenv('FRONTEND_URL', '')
+            if frontend_url and frontend_url not in cors_origins:
+                cors_origins.append(frontend_url.strip())
+            
             # Default production origins if none specified
             if not cors_origins:
+                # Use exact domains instead of wildcards for Socket.IO compatibility
                 cors_origins = [
-                    "https://*.vercel.app",
-                    "https://*.herokuapp.com",
-                    "https://*.railway.app",
-                    "https://*.render.com"
+                    "https://unitedvoice-bke1yxntg-asiantowns-projects.vercel.app",
+                    "https://web-production-204e.up.railway.app",
+                    "https://united-voice-agent.vercel.app"
                 ]
             
-            return cors_origins
+            # Expand wildcard patterns for Socket.IO compatibility
+            expanded_origins = []
+            for origin in cors_origins:
+                if "*" in origin:
+                    # Convert wildcard patterns to specific known domains
+                    if "*.vercel.app" in origin:
+                        expanded_origins.extend([
+                            "https://unitedvoice-bke1yxntg-asiantowns-projects.vercel.app",
+                            "https://united-voice-agent.vercel.app"
+                        ])
+                    elif "*.railway.app" in origin:
+                        expanded_origins.append("https://web-production-204e.up.railway.app")
+                    # Add other wildcard expansions as needed
+                else:
+                    expanded_origins.append(origin)
+            
+            return expanded_origins
         else:
             # Development origins
             return [
