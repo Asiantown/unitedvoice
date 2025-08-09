@@ -143,7 +143,9 @@ class UnitedVoiceAgent:
             
         except Exception as e:
             print(f"❌ STT error: {e}")
-            sys.exit(1)
+            # Don't exit - just disable STT
+            self.whisper_client = None
+            logger.warning("STT disabled - GROQ_API_KEY not found")
     
     def setup_llm(self):
         """Initialize Language Model with Groq"""
@@ -151,7 +153,9 @@ class UnitedVoiceAgent:
         try:
             groq_api_key = settings.groq.api_key or os.getenv('GROQ_API_KEY')
             if not groq_api_key:
-                raise Exception("Missing GROQ_API_KEY")
+                print("⚠️  GROQ_API_KEY not found - LLM disabled")
+                self.groq_client = None
+                return
             
             print("   Creating Groq client...")
             self.groq_client = GroqClient(api_key=groq_api_key)
