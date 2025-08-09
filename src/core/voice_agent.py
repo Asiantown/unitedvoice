@@ -21,7 +21,8 @@ try:
 except ImportError:
     elevenlabs_play = None
 from src.services.groq_client import GroqClient
-from src.services.groq_whisper import GroqWhisperClient
+from src.services.fallback_transcription import EnhancedGroqWhisperClient as GroqWhisperClient
+from src.services.fallback_llm import FallbackLLMService
 from src.config.settings import settings
 from dotenv import load_dotenv
 import json
@@ -59,6 +60,9 @@ class UnitedVoiceAgent:
         
         # Initialize booking system
         self.booking_flow = BookingFlow()
+        
+        # Initialize fallback LLM service
+        self.fallback_llm = FallbackLLMService()
         
         # Initialize flight API (Google Flights via SerpApi)
         try:
@@ -122,41 +126,45 @@ class UnitedVoiceAgent:
                 pass
     
     def setup_stt(self):
-        """Initialize Speech-to-Text with Groq Whisper Turbo"""
+        """Initialize Speech-to-Text with enhanced fallback mechanisms"""
         print("Setting up Speech-to-Text...")
-        try:
-            groq_api_key = os.getenv('GROQ_API_KEY') or settings.groq.api_key
-            if not groq_api_key:
-                raise Exception("Missing GROQ_API_KEY for Whisper")
+        
+        # Always create the enhanced client - it handles fallbacks internally
+        self.whisper_client = GroqWhisperClient()
+        
+        # Get status and explain to user
+        status = self.whisper_client.get_status()
+        
+        if status['groq_available']:
+            print("✓ STT ready (Groq Whisper Turbo)")
+        else:
+            print("⚠️  STT using fallback mode")
+            explanation = self.whisper_client.explain_fallback_to_user()
+            print(f"   {explanation}")
             
-            self.whisper_client = GroqWhisperClient(api_key=groq_api_key)
-            
-            # Test connection
-            if self.whisper_client.test_connection():
-                print("✓ STT ready (Groq Whisper Turbo)")
-            else:
-                raise Exception("Groq Whisper connection failed")
-                
-            # Audio settings remain the same
-            self.sample_rate = settings.whisper.sample_rate
-            self.channels = settings.whisper.channels
-            
-        except Exception as e:
-            print(f"❌ STT error: {e}")
-            # Don't exit - just disable STT
-            self.whisper_client = None
-            logger.warning("STT disabled - GROQ_API_KEY not found")
+            # Log detailed status for debugging
+            logger.warning(f"STT fallback status: {status}")
+        
+        # Audio settings
+        self.sample_rate = settings.whisper.sample_rate
+        self.channels = settings.whisper.channels
+        self.stt_fallback_mode = "mock" if not status['groq_available'] else None
     
     def setup_llm(self):
-        """Initialize Language Model with Groq"""
+        """Initialize Language Model with Groq and fallback handling"""
         print("Setting up Language Model...")
-        try:
-            groq_api_key = os.getenv('GROQ_API_KEY') or settings.groq.api_key
-            if not groq_api_key:
-                print("⚠️  GROQ_API_KEY not found - LLM disabled")
-                self.groq_client = None
-                return
+        
+        groq_api_key = os.getenv('GROQ_API_KEY') or settings.groq.api_key
+        
+        if not groq_api_key:
+            print("⚠️  GROQ_API_KEY not found")
+            print("   App will continue with limited functionality")
+            print("   Responses will be basic but booking flow will work")
+            self.groq_client = None
+            self.llm_available = False
+            return
             
+        try:
             print("   Creating Groq client...")
             self.groq_client = GroqClient(api_key=groq_api_key)
             
@@ -165,13 +173,18 @@ class UnitedVoiceAgent:
             
             if success:
                 print("✓ LLM ready (Groq)")
+                self.llm_available = True
             else:
-                raise Exception(f"Groq connection failed: {message}")
+                print(f"⚠️  Groq connection failed: {message}")
+                print("   App will continue with basic responses")
+                self.groq_client = None
+                self.llm_available = False
+                
         except Exception as e:
-            print(f"LLM error: {e}")
-            import traceback
-            traceback.print_exc()
-            sys.exit(1)
+            print(f"⚠️  LLM initialization error: {e}")
+            print("   App will continue with basic responses")
+            self.groq_client = None
+            self.llm_available = False
     
     def setup_tts(self):
         """Initialize Text-to-Speech"""
@@ -282,8 +295,16 @@ Which one catches your eye?"""
         print("✓ Recording complete")
         return audio_data
     
-    def transcribe_audio(self, audio_data):
-        """Convert audio to text using Groq Whisper Turbo"""
+    def transcribe_audio(self, audio_data, context_hint=None):
+        """Convert audio to text with enhanced fallback support"""
+        
+        # Check if we should skip audio recording in fallback mode
+        if self.stt_fallback_mode == "mock":
+            print("🎭 Using mock transcription (Groq API unavailable)")
+            result = self.whisper_client.fallback_service.get_mock_transcription(context_hint)
+            print(f"✓ Mock response: '{result.text}' (from {result.source})")
+            return result.text
+        
         print("Transcribing...")
         
         # Save audio temporarily
@@ -297,17 +318,36 @@ Which one catches your eye?"""
             wav_file.writeframes(audio_int16.tobytes())
         
         try:
-            # Transcribe using Groq Whisper Turbo
-            transcription = self.whisper_client.transcribe_audio_file(
+            # Use enhanced transcription with fallback
+            result = self.whisper_client.transcribe_audio_file(
                 temp_file,
-                language="en"
+                language="en",
+                context=context_hint,
+                fallback_mode=self.stt_fallback_mode or "mock"
             )
             
-            print(f"✓ Heard: '{transcription}'")
+            if isinstance(result, str):
+                # Backwards compatibility
+                transcription = result
+                source = "groq"
+            else:
+                transcription = result.text
+                source = result.source
             
+            if source == "groq":
+                print(f"✓ Heard: '{transcription}'")
+            elif source == "mock":
+                print(f"✓ Mock response: '{transcription}' (Groq unavailable)")
+            elif source == "user_input":
+                print(f"✓ User typed: '{transcription}'")
+            else:
+                print(f"✓ Transcription ({source}): '{transcription}'")
+                
         except Exception as e:
             print(f"❌ Transcription error: {e}")
-            transcription = ""
+            # Final fallback
+            transcription = "I'm having trouble hearing you right now"
+            
         finally:
             # Clean up
             if os.path.exists(temp_file):
@@ -526,19 +566,31 @@ Be conversational and human-like:
 
 You're not just an assistant - you're a helpful human who loves making travel easy!"""
         
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_input}
-        ]
-        
-        # Get LLM response from Groq (fast!)
-        response = self.groq_client.chat(
-            messages=messages,
-            model=settings.groq.model,
-            temperature=settings.groq.temperature
-        )
-        
-        response_text = response['message']['content']
+        # Generate response using LLM or fallback
+        if self.groq_client and hasattr(self, 'llm_available') and self.llm_available:
+            try:
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_input}
+                ]
+                
+                # Get LLM response from Groq
+                response = self.groq_client.chat(
+                    messages=messages,
+                    model=settings.groq.model,
+                    temperature=settings.groq.temperature
+                )
+                
+                response_text = response['message']['content']
+                
+            except Exception as e:
+                logger.error(f"Groq LLM failed: {e}")
+                # Fall back to simple responses
+                response_text = self._get_fallback_response(user_input, booking_response, state_info)
+                
+        else:
+            # Use fallback LLM
+            response_text = self._get_fallback_response(user_input, booking_response, state_info)
         
         # Add assistant response to conversation history
         self.conversation_history.append({"role": "assistant", "content": response_text})
@@ -548,6 +600,37 @@ You're not just an assistant - you're a helpful human who loves making travel ea
             self.conversation_history = self.conversation_history[-20:]
         
         return response_text
+    
+    def _get_fallback_response(self, user_input: str, booking_response: str, state_info: dict) -> str:
+        """Generate fallback response when Groq LLM is unavailable"""
+        
+        # Use the booking flow response if it's substantial
+        if booking_response and len(booking_response.strip()) > 10:
+            # Enhance booking response with natural language
+            enhanced = self.fallback_llm.enhance_booking_response(
+                booking_response, 
+                self.booking_flow.state
+            )
+            logger.info(f"Using enhanced booking response: {enhanced[:50]}...")
+            return enhanced
+        
+        # Generate a basic response using fallback service
+        context = {}
+        
+        # Extract customer name if available
+        booking_info = self.booking_flow.booking_info
+        if booking_info.customer.first_name:
+            context["customer_name"] = booking_info.customer.first_name.value
+        
+        response = self.fallback_llm.get_response(
+            user_input,
+            self.booking_flow.state,
+            booking_response,
+            context
+        )
+        
+        logger.info(f"Using fallback LLM response: {response[:50]}...")
+        return response
     
     def _build_booking_context(self, booking_info) -> str:
         """Build a comprehensive context string of current booking information"""

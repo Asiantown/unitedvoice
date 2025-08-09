@@ -36,7 +36,20 @@ class IntentRecognizer:
     
     def __init__(self):
         """Initialize the intent recognizer with Groq client"""
-        self.client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+        api_key = os.environ.get("GROQ_API_KEY")
+        if api_key:
+            try:
+                self.client = Groq(api_key=api_key)
+                self.client_available = True
+            except Exception as e:
+                self.logger = logging.getLogger(__name__)
+                self.logger.warning(f"Failed to initialize Groq client: {e}")
+                self.client = None
+                self.client_available = False
+        else:
+            self.client = None
+            self.client_available = False
+            
         self.content_filter = ContentFilter()
         self.logger = logging.getLogger(__name__)
         
@@ -129,19 +142,22 @@ class IntentRecognizer:
         # Sanitize input for API call
         sanitized_input = self.content_filter.sanitize_for_api(filtered_input)
         
-        # Try LLM recognition with retry logic
-        for attempt in range(self.max_retries):
-            try:
-                return self._call_llm_with_retry(sanitized_input, current_state, booking_info, attempt)
-            except Exception as e:
-                self.logger.error(f"Attempt {attempt + 1} failed: {str(e)}")
-                if attempt == self.max_retries - 1:
-                    self.logger.error(f"All LLM attempts failed, falling back to rule-based classification")
-                    break
-                
-                # Exponential backoff
-                delay = self.base_delay * (2 ** attempt)
-                time.sleep(delay)
+        # Try LLM recognition if client is available
+        if self.client_available:
+            for attempt in range(self.max_retries):
+                try:
+                    return self._call_llm_with_retry(sanitized_input, current_state, booking_info, attempt)
+                except Exception as e:
+                    self.logger.error(f"Attempt {attempt + 1} failed: {str(e)}")
+                    if attempt == self.max_retries - 1:
+                        self.logger.error(f"All LLM attempts failed, falling back to rule-based classification")
+                        break
+                    
+                    # Exponential backoff
+                    delay = self.base_delay * (2 ** attempt)
+                    time.sleep(delay)
+        else:
+            self.logger.info("Groq client not available, using rule-based classification")
         
         # Fallback to rule-based classification
         return self._fallback_classification(sanitized_input, current_state)

@@ -1,0 +1,27 @@
+{
+  "timestamp": "2025-08-09T13:37:20.962170",
+  "environment": {
+    "GROQ_API_KEY": {
+      "present": false,
+      "length": 0
+    },
+    "ELEVENLABS_API_KEY": {
+      "present": false,
+      "length": 0
+    },
+    "SERPAPI_API_KEY": {
+      "present": false,
+      "length": 0
+    }
+  },
+  "groq_tests": {
+    "api_key_found": false
+  },
+  "recommendations": [
+    "Set GROQ_API_KEY in environment variables",
+    "Check network connectivity to api.groq.com",
+    "Verify API key is correct and not expired",
+    "Check Groq account quota and billing",
+    "Implement fallback mechanisms for quota exhaustion"
+  ]
+}
