@@ -91,9 +91,9 @@ class UnitedVoiceAgent:
         self._clear_persistent_data()
         
         # Initialize core components
-        self._initialize_stt()
-        self._initialize_llm()
-        self._initialize_tts()
+        self.setup_stt()
+        self.setup_llm()
+        self.setup_tts()
         
         # Initialize business logic components
         self.booking_flow = BookingFlow()
@@ -173,6 +173,81 @@ class UnitedVoiceAgent:
         text = re.sub(r'\s+', ' ', text)
         
         return text.strip()
+    
+    def setup_stt(self):
+        """Initialize Speech-to-Text with enhanced fallback mechanisms"""
+        logger.info("Setting up Speech-to-Text...")
+        
+        # Always create the enhanced client - it handles fallbacks internally
+        self.whisper_client = GroqWhisperClient()
+        
+        # Get status for logging
+        status = self.whisper_client.get_status()
+        
+        if status['groq_available']:
+            logger.info("STT ready (Groq Whisper Turbo)")
+        else:
+            logger.warning("STT using fallback mode")
+            explanation = self.whisper_client.explain_fallback_to_user()
+            logger.info(f"Fallback explanation: {explanation}")
+            
+        # Audio settings
+        self.sample_rate = settings.whisper.sample_rate
+        self.channels = settings.whisper.channels
+    
+    def setup_llm(self):
+        """Initialize Language Model with Groq and fallback"""
+        logger.info("Setting up Language Model...")
+        try:
+            groq_api_key = os.getenv('GROQ_API_KEY') or settings.groq.api_key
+            if not groq_api_key:
+                logger.warning("GROQ_API_KEY not found - LLM disabled")
+                self.groq_client = None
+                return
+            
+            logger.info("Creating Groq client...")
+            self.groq_client = GroqClient(api_key=groq_api_key)
+            
+            logger.info("Testing connection...")
+            success, message = self.groq_client.test_connection()
+            
+            if success:
+                logger.info(f"LLM ready: {message}")
+            else:
+                logger.error(f"LLM connection failed: {message}")
+                self.groq_client = None
+        except Exception as e:
+            logger.error(f"LLM error: {e}")
+            self.groq_client = None
+    
+    def setup_tts(self):
+        """Initialize Text-to-Speech with ElevenLabs"""
+        logger.info("Setting up Text-to-Speech...")
+        
+        try:
+            # Check for ElevenLabs API key
+            api_key = os.getenv('ELEVENLABS_API_KEY') or settings.elevenlabs.api_key
+            
+            if not api_key:
+                logger.warning("No ElevenLabs API key found")
+                self.elevenlabs_client = None
+                return
+            
+            # Import ElevenLabs client
+            try:
+                from elevenlabs.client import ElevenLabs
+                self.elevenlabs_client = ElevenLabs(api_key=api_key)
+                logger.info("TTS ready (ElevenLabs)")
+            except ImportError:
+                logger.error("ElevenLabs library not installed")
+                self.elevenlabs_client = None
+            except Exception as e:
+                logger.error(f"ElevenLabs initialization error: {e}")
+                self.elevenlabs_client = None
+                
+        except Exception as e:
+            logger.error(f"TTS error: {e}")
+            self.elevenlabs_client = None
     
     def _clear_persistent_data(self) -> None:
         """
