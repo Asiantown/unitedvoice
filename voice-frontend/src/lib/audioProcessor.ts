@@ -72,7 +72,7 @@ export function initializeAudioFormats(): AudioFormat[] {
   }));
 
   if (process.env.NODE_ENV === 'development') {
-    console.log('Supported audio formats:', formats.filter(f => f.supported));
+    // Audio format support detected
   }
   return formats;
 }

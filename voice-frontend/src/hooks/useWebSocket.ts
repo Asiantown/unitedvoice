@@ -116,7 +116,7 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
       setError(null);
       
       if (process.env.NODE_ENV === 'development') {
-        console.log('WebSocket connected:', socket.id);
+        // WebSocket connected successfully
       }
     });
 
@@ -124,7 +124,7 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
       setConnectionState('disconnected');
       
       if (process.env.NODE_ENV === 'development') {
-        console.log('WebSocket disconnected:', reason);
+        // WebSocket disconnected
       }
       
       if (reason === 'io server disconnect') {
@@ -147,7 +147,7 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
       setError(null);
       
       if (process.env.NODE_ENV === 'development') {
-        console.log(`WebSocket reconnected after ${attemptNumber} attempts`);
+        // WebSocket reconnected successfully
       }
     });
 
@@ -155,7 +155,7 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
       setConnectionState('reconnecting');
       
       if (process.env.NODE_ENV === 'development') {
-        console.log(`WebSocket reconnection attempt ${attemptNumber}`);
+        // Attempting WebSocket reconnection
       }
     });
 
@@ -179,7 +179,7 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
     // Voice agent event handlers
     socket.on('transcription_result', (data: { text: string; is_final: boolean; confidence?: number }) => {
       if (process.env.NODE_ENV === 'development') {
-        console.log('Transcription result:', data);
+        // Transcription received
       }
       
       addTranscription({
@@ -192,7 +192,7 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
 
     socket.on('agent_response', (data: { text: string; audio_url?: string; metadata?: Record<string, unknown> }) => {
       if (process.env.NODE_ENV === 'development') {
-        console.log('Agent response:', data);
+        // Agent response received
       }
       
       addAgentResponse({
@@ -205,7 +205,7 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
 
     socket.on('tts_audio', (data: { audio_data: string; format: string; metadata?: Record<string, unknown> }) => {
       if (process.env.NODE_ENV === 'development') {
-        console.log('TTS audio received:', data.format);
+        // TTS audio received
       }
       
       addAudioToQueue({
@@ -218,7 +218,7 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
 
     socket.on('agent_state_change', (data: { state: string; metadata?: Record<string, unknown> }) => {
       if (process.env.NODE_ENV === 'development') {
-        console.log('Agent state change:', data.state);
+        // Agent state updated
       }
       
       setAgentState(data.state, data.metadata);
@@ -227,7 +227,7 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
     // Audio event handlers
     socket.on('audio_received', (data: { success: boolean; message?: string }) => {
       if (process.env.NODE_ENV === 'development') {
-        console.log('Audio received confirmation:', data);
+        // Audio received by server
       }
       
       if (!data.success && data.message) {
@@ -237,7 +237,7 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
 
     socket.on('audio_processing', (data: { status: string; progress?: number }) => {
       if (process.env.NODE_ENV === 'development') {
-        console.log('Audio processing status:', data);
+        // Audio processing status updated
       }
       // Could be used to show processing progress in UI
     });
@@ -245,7 +245,7 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
     // System event handlers
     socket.on('system_status', (data: { status: string; message?: string }) => {
       if (process.env.NODE_ENV === 'development') {
-        console.log('System status:', data);
+        // System status updated
       }
       
       if (data.status === 'error') {
@@ -276,7 +276,7 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
 
     if (socketRef.current) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('Disconnecting WebSocket');
+        // Disconnecting WebSocket
       }
       
       socketRef.current.disconnect();
@@ -307,7 +307,7 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
       socketRef.current.emit('audio_data', audioPayload);
       
       if (process.env.NODE_ENV === 'development') {
-        console.log('Audio data sent to server');
+        // Audio data sent successfully
       }
       
       return true;
@@ -343,7 +343,7 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
       socketRef.current.emit('text_message', textPayload);
       
       if (process.env.NODE_ENV === 'development') {
-        console.log('Text message sent to server:', text);
+        // Text message sent successfully
       }
       
       return true;
@@ -374,7 +374,7 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
       });
       
       if (process.env.NODE_ENV === 'development') {
-        console.log('Start recording signal sent');
+        // Recording started
       }
       
       return true;
@@ -401,7 +401,7 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
       });
       
       if (process.env.NODE_ENV === 'development') {
-        console.log('Stop recording signal sent');
+        // Recording stopped
       }
       
       return true;
@@ -431,7 +431,7 @@ export const useWebSocket = (config: UseWebSocketConfig = {}) => {
       socketRef.current.emit(event, data);
       
       if (process.env.NODE_ENV === 'development') {
-        console.log(`Event emitted: ${event}`, data);
+        // Event emitted successfully
       }
       
       return true;
