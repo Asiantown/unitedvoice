@@ -3,7 +3,6 @@
 import React, { useEffect, useState, useRef, memo, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { useHoldToTalk } from '@/hooks/useHoldToTalk';
-import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import { useConnectionStatus, useRecordingStatus, useAudioVisualization } from '@/store/voiceStore';
 import { Mic, MicOff, Wifi, WifiOff, Volume2, VolumeX } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -322,29 +321,22 @@ export const VoiceControls: React.FC<VoiceControlsProps> = memo(({
   const { recordingState, isHoldingToTalk, recordingStartTime } = useRecordingStatus();
   const { waveformData } = useAudioVisualization();
   
-  // Device detection
-  const { deviceInfo, getControlInstructions } = useDeviceDetection();
-  
   // Hold-to-talk hook
   const {
     handleMouseDown,
     handleMouseUp,
-    handleTouchStart,
-    handleTouchEnd,
     audioLevel,
     isConnected,
     hasAudioPermission,
     startRecording: startManualRecording,
     stopRecording: stopManualRecording,
   } = useHoldToTalk({
-    spacebarEnabled: !deviceInfo.shouldUseTouchControls, // Disable spacebar on touch devices
-    mouseEnabled: !deviceInfo.shouldUseTouchControls,   // Disable mouse hold on touch devices
-    touchEnabled: deviceInfo.shouldUseTouchControls,    // Enable touch only on touch devices
+    spacebarEnabled: true,  // Enable spacebar for desktop
+    mouseEnabled: true,     // Enable mouse hold
   });
 
   // Component state
   const [isMuted] = useState<boolean>(false);
-  const [showTouchFeedback, setShowTouchFeedback] = useState<boolean>(false);
   const isRecording = recordingState === 'recording';
   const isProcessing = recordingState === 'processing' || recordingState === 'uploading';
 
@@ -400,73 +392,13 @@ export const VoiceControls: React.FC<VoiceControlsProps> = memo(({
       return;
     }
     
-    // On touch devices, clicks should not trigger toggle mode
-    // Touch devices should only use touch-and-hold
-    if (deviceInfo.shouldUseTouchControls) {
-      event.preventDefault();
-      return;
-    }
-    
-    // Toggle manual recording mode (for regular clicks on desktop)
+    // Toggle manual recording mode
     if (isRecording) {
       stopManualRecording();
     } else {
       startManualRecording();
     }
-  }, [disabled, isConnected, isHoldingToTalk, isRecording, stopManualRecording, startManualRecording, deviceInfo.shouldUseTouchControls]);
-
-  /**
-   * Enhanced touch handlers with proper event handling for mobile
-   */
-  const handleTouchStartEnhanced = useCallback((event: React.TouchEvent<HTMLButtonElement>): void => {
-    console.log('[VoiceControls] Touch start enhanced:', { 
-      disabled, 
-      isConnected, 
-      shouldUseTouchControls: deviceInfo.shouldUseTouchControls 
-    });
-    
-    if (disabled || !isConnected || !deviceInfo.shouldUseTouchControls) {
-      console.log('[VoiceControls] Touch start blocked - conditions not met');
-      return;
-    }
-    
-    // Prevent default touch behaviors (like scrolling, selection, etc.)
-    event.preventDefault();
-    event.stopPropagation();
-    
-    // Add haptic feedback if available
-    if ('vibrate' in navigator) {
-      navigator.vibrate(50); // Short vibration feedback
-    }
-    
-    // Trigger touch feedback animation
-    setShowTouchFeedback(true);
-    setTimeout(() => setShowTouchFeedback(false), 600);
-    
-    console.log('[VoiceControls] Calling handleTouchStart from hook');
-    handleTouchStart(event);
-  }, [disabled, isConnected, deviceInfo.shouldUseTouchControls, handleTouchStart]);
-
-  const handleTouchEndEnhanced = useCallback((event: React.TouchEvent<HTMLButtonElement>): void => {
-    if (disabled || !isConnected || !deviceInfo.shouldUseTouchControls) return;
-    
-    // Prevent default behaviors
-    event.preventDefault();
-    event.stopPropagation();
-    
-    handleTouchEnd(event);
-  }, [disabled, isConnected, deviceInfo.shouldUseTouchControls, handleTouchEnd]);
-
-  const handleTouchCancelEnhanced = useCallback((event: React.TouchEvent<HTMLButtonElement>): void => {
-    if (disabled || !isConnected || !deviceInfo.shouldUseTouchControls) return;
-    
-    // Prevent default behaviors
-    event.preventDefault();
-    event.stopPropagation();
-    
-    // Treat touch cancel as touch end to ensure recording stops
-    handleTouchEnd(event);
-  }, [disabled, isConnected, deviceInfo.shouldUseTouchControls, handleTouchEnd]);
+  }, [disabled, isConnected, isHoldingToTalk, isRecording, stopManualRecording, startManualRecording]);
 
   return (
     <section 
@@ -515,40 +447,17 @@ export const VoiceControls: React.FC<VoiceControlsProps> = memo(({
             variant={getButtonVariant()}
             size="icon"
             className={`${config.button} relative transition-all duration-200 ${
-              isRecording ? (
-                deviceInfo.shouldUseTouchControls 
-                  ? 'mobile-recording' 
-                  : 'animate-pulse ring-4 ring-red-300'
-              ) : ''
+              isRecording ? 'animate-pulse ring-4 ring-red-300' : ''
             } ${
               disabled || !isConnected ? 'opacity-50 cursor-not-allowed' : ''
-            } ${
-              deviceInfo.shouldUseTouchControls 
-                ? 'touch-button touch-target' + (deviceInfo.platform.includes('iOS') ? ' ios-touch' : ' android-touch')
-                : ''
-            } ${
-              showTouchFeedback ? 'touch-feedback' : ''
             }`}
             disabled={disabled || !isConnected}
             onClick={handleClick}
-            onMouseDown={deviceInfo.shouldUseTouchControls ? undefined : handleMouseDown}
-            onMouseUp={deviceInfo.shouldUseTouchControls ? undefined : handleMouseUp}
-            onMouseLeave={deviceInfo.shouldUseTouchControls ? undefined : handleMouseUp} // Prevent stuck state
-            onTouchStart={handleTouchStartEnhanced}
-            onTouchEnd={handleTouchEndEnhanced}
-            onTouchCancel={handleTouchCancelEnhanced}
-            onContextMenu={(e) => e.preventDefault()} // Prevent context menu on long press
+            onMouseDown={handleMouseDown}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp} // Prevent stuck state
             aria-label={isRecording ? 'Stop recording' : 'Start recording'}
             aria-pressed={isRecording}
-            style={{
-              // Additional CSS for touch devices
-              ...(deviceInfo.shouldUseTouchControls && {
-                WebkitUserSelect: 'none',
-                WebkitTouchCallout: 'none',
-                WebkitTapHighlightColor: 'transparent',
-                userSelect: 'none'
-              })
-            }}
           >
             {getButtonIcon()}
             
@@ -601,27 +510,14 @@ export const VoiceControls: React.FC<VoiceControlsProps> = memo(({
         ) : !hasAudioPermission ? (
           'Please allow microphone access'
         ) : isRecording ? (
-          getControlInstructions().secondary || 'Release to stop recording'
+          'Release to stop recording'
         ) : (
-          (() => {
-            const instructions = getControlInstructions();
-            return (
-              <>
-                <div>
-                  {instructions.keyboardHint ? (
-                    <>
-                      Press and hold <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs">{instructions.keyboardHint}</kbd> or click and hold to talk
-                    </>
-                  ) : (
-                    instructions.primary
-                  )}
-                </div>
-                {instructions.secondary && !deviceInfo.shouldUseTouchControls && (
-                  <div className="text-xs mt-1">{instructions.secondary}</div>
-                )}
-              </>
-            );
-          })()
+          <>
+            <div>
+              Press and hold <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs">Space</kbd> or click and hold to talk
+            </div>
+            <div className="text-xs mt-1">Click to toggle recording mode</div>
+          </>
         )}
       </div>
 

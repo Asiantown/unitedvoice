@@ -71,7 +71,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         setIsPlaying(true);
       }
     } catch (error) {
-      console.error('Audio playback error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Audio playback error:', error);
+      }
     }
   };
 
@@ -82,7 +84,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     } catch (error) {
-      console.error('Copy failed:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Copy failed:', error);
+      }
     }
   };
 

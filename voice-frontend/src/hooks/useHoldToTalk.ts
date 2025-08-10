@@ -5,7 +5,6 @@ import { useWebSocket } from './useWebSocket';
 interface UseHoldToTalkConfig {
   spacebarEnabled?: boolean;
   mouseEnabled?: boolean;
-  touchEnabled?: boolean;
   audioConstraints?: MediaStreamConstraints['audio'];
   recordingTimeLimit?: number; // in milliseconds
   silenceTimeout?: number; // auto-stop after silence (in milliseconds)
@@ -32,7 +31,6 @@ export const useHoldToTalk = (config: UseHoldToTalkConfig = {}) => {
   const {
     spacebarEnabled = true,
     mouseEnabled = true,
-    touchEnabled = true,
     audioConstraints,
     recordingTimeLimit = 60000, // 60 seconds
     silenceTimeout = 5000, // 5 seconds
@@ -70,7 +68,6 @@ export const useHoldToTalk = (config: UseHoldToTalkConfig = {}) => {
   // State for key/mouse tracking
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const [isMousePressed, setIsMousePressed] = useState(false);
-  const [isTouchPressed, setIsTouchPressed] = useState(false);
   const [hasStartedRecording, setHasStartedRecording] = useState(false);
 
   // Audio level monitoring for silence detection  
@@ -89,7 +86,6 @@ export const useHoldToTalk = (config: UseHoldToTalkConfig = {}) => {
         video: false,
       };
 
-      console.log('Requesting microphone access with constraints:', constraints);
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       mediaStreamRef.current = stream;
 
@@ -123,7 +119,6 @@ export const useHoldToTalk = (config: UseHoldToTalkConfig = {}) => {
         throw new Error('No supported audio format found');
       }
 
-      console.log('Using audio format:', selectedMimeType);
 
       mediaRecorderRef.current = new MediaRecorder(stream, {
         mimeType: selectedMimeType,
@@ -138,8 +133,6 @@ export const useHoldToTalk = (config: UseHoldToTalkConfig = {}) => {
       };
 
       mediaRecorderRef.current.onstop = async () => {
-        console.log('MediaRecorder stopped, processing audio...');
-        
         if (audioChunksRef.current.length > 0) {
           const audioBlob = new Blob(audioChunksRef.current, { type: selectedMimeType });
           audioChunksRef.current = []; // Clear chunks
@@ -151,14 +144,12 @@ export const useHoldToTalk = (config: UseHoldToTalkConfig = {}) => {
             const success = sendAudioData(base64Audio, selectedMimeType);
             
             if (success) {
-              console.log('Audio sent successfully');
               setRecordingState('processing');
             } else {
               setRecordingState('idle');
               setError('Failed to send audio to server');
             }
           } catch (error) {
-            console.error('Error processing audio:', error);
             setRecordingState('idle');
             setError('Failed to process audio');
           }
@@ -167,15 +158,13 @@ export const useHoldToTalk = (config: UseHoldToTalkConfig = {}) => {
         }
       };
 
-      mediaRecorderRef.current.onerror = (event) => {
-        console.error('MediaRecorder error:', event);
+      mediaRecorderRef.current.onerror = () => {
         setRecordingState('idle');
         setError('Recording failed');
       };
 
       return true;
     } catch (error) {
-      console.error('Failed to initialize audio:', error);
       setError(`Microphone access denied: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return false;
     }
@@ -234,8 +223,6 @@ export const useHoldToTalk = (config: UseHoldToTalkConfig = {}) => {
       return; // Already recording
     }
 
-    console.log('Starting recording...');
-
     // Initialize audio if not already done
     if (!mediaRecorderRef.current || !mediaStreamRef.current) {
       const initialized = await initializeAudio();
@@ -269,14 +256,11 @@ export const useHoldToTalk = (config: UseHoldToTalkConfig = {}) => {
       // Set up recording time limit
       if (recordingTimeLimit > 0) {
         recordingTimerRef.current = setTimeout(() => {
-          console.log('Recording time limit reached');
           stopRecordingInternal();
         }, recordingTimeLimit);
       }
 
-      console.log('Recording started successfully');
     } catch (error) {
-      console.error('Failed to start recording:', error);
       setRecordingState('idle');
       setError('Failed to start recording');
     }
@@ -299,12 +283,9 @@ export const useHoldToTalk = (config: UseHoldToTalkConfig = {}) => {
       return;
     }
 
-    console.log('Stopping recording...');
-
     // Check minimum recording time
     const recordingDuration = Date.now() - (Date.now() % 1000);
     if (hasStartedRecording && recordingDuration < minRecordingTime) {
-      console.log('Recording too short, ignoring...');
       setRecordingState('idle');
       setHasStartedRecording(false);
       return;
@@ -345,9 +326,7 @@ export const useHoldToTalk = (config: UseHoldToTalkConfig = {}) => {
       setCurrentAudioLevel(0);
       setWaveformData(null);
 
-      console.log('Recording stopped successfully');
     } catch (error) {
-      console.error('Failed to stop recording:', error);
       setRecordingState('idle');
       setError('Failed to stop recording');
     }
@@ -365,36 +344,20 @@ export const useHoldToTalk = (config: UseHoldToTalkConfig = {}) => {
   // Handle hold state changes
   useEffect(() => {
     const shouldBeHolding = (spacebarEnabled && isSpacePressed) || 
-                           (mouseEnabled && isMousePressed) || 
-                           (touchEnabled && isTouchPressed);
-
-    console.log('[HoldToTalk] Hold state check:', {
-      shouldBeHolding,
-      spacebarEnabled,
-      isSpacePressed,
-      mouseEnabled,
-      isMousePressed,
-      touchEnabled,
-      isTouchPressed,
-      recordingState
-    });
+                           (mouseEnabled && isMousePressed);
 
     setHoldingToTalk(shouldBeHolding);
 
     if (shouldBeHolding && recordingState === 'idle') {
-      console.log('[HoldToTalk] Starting recording from hold state');
       startRecordingInternal();
     } else if (!shouldBeHolding && recordingState === 'recording') {
-      console.log('[HoldToTalk] Stopping recording from hold state');
       stopRecordingInternal();
     }
   }, [
     isSpacePressed,
     isMousePressed,
-    isTouchPressed,
     spacebarEnabled,
     mouseEnabled,
-    touchEnabled,
     recordingState,
     setHoldingToTalk,
     startRecordingInternal,
@@ -460,21 +423,6 @@ export const useHoldToTalk = (config: UseHoldToTalkConfig = {}) => {
     setIsMousePressed(false);
   }, [mouseEnabled]);
 
-  const handleTouchStart = useCallback((event: React.TouchEvent) => {
-    console.log('[HoldToTalk] Touch start - touchEnabled:', touchEnabled);
-    if (!touchEnabled) return;
-    event.preventDefault();
-    setIsTouchPressed(true);
-    console.log('[HoldToTalk] Touch pressed set to true');
-  }, [touchEnabled]);
-
-  const handleTouchEnd = useCallback((event: React.TouchEvent) => {
-    console.log('[HoldToTalk] Touch end - touchEnabled:', touchEnabled);
-    if (!touchEnabled) return;
-    event.preventDefault();
-    setIsTouchPressed(false);
-    console.log('[HoldToTalk] Touch pressed set to false');
-  }, [touchEnabled]);
 
   // Manual start/stop methods
   const startManualRecording = useCallback(() => {
@@ -498,8 +446,6 @@ export const useHoldToTalk = (config: UseHoldToTalkConfig = {}) => {
     // Event handlers for components
     handleMouseDown,
     handleMouseUp,
-    handleTouchStart,
-    handleTouchEnd,
     
     // Manual control
     startRecording: startManualRecording,

@@ -71,7 +71,9 @@ export function initializeAudioFormats(): AudioFormat[] {
     supported: typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(format.mimeType),
   }));
 
-  console.log('Supported audio formats:', formats.filter(f => f.supported));
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Supported audio formats:', formats.filter(f => f.supported));
+  }
   return formats;
 }
 
@@ -256,7 +258,9 @@ export class AudioProcessor {
     try {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     } catch (error) {
-      console.warn('AudioContext not supported:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('AudioContext not supported:', error);
+      }
     }
   }
 

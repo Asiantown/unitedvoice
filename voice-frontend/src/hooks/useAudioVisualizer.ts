@@ -74,7 +74,9 @@ export function useAudioVisualizer(
       }
       
     } catch (error) {
-      console.warn('Failed to initialize audio context:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Failed to initialize audio context:', error)
+      }
     }
   }, [audioElement, fftSize, smoothingTimeConstant, minDecibels, maxDecibels])
   
@@ -273,7 +275,9 @@ export function useMicrophoneVisualizer(options: UseAudioVisualizerOptions = {})
       }, updateInterval)
       
     } catch (error) {
-      console.error('Failed to start microphone:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to start microphone:', error)
+      }
     }
   }, [fftSize, smoothingTimeConstant, minDecibels, maxDecibels, updateInterval])
   

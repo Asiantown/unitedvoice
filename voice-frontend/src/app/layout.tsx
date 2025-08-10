@@ -43,14 +43,14 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL("https://voice-agent.united.com"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://voice-agent.united.com"),
   alternates: {
     canonical: "/",
   },
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://voice-agent.united.com",
+    url: process.env.NEXT_PUBLIC_SITE_URL || "https://voice-agent.united.com",
     siteName: "United Voice Agent",
     title: "United Voice Agent - AI-Powered Flight Assistant",
     description: "Advanced AI-powered voice assistant for United Airlines booking and customer service",

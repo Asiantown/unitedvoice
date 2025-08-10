@@ -160,56 +160,6 @@ export function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-export function getDeviceInfo(): {
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
-  platform: string;
-  userAgent: string;
-} {
-  if (typeof window === 'undefined') {
-    return {
-      isMobile: false,
-      isTablet: false,
-      isDesktop: true,
-      platform: 'server',
-      userAgent: '',
-    };
-  }
-
-  const userAgent = navigator.userAgent;
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
-  const isTablet = /iPad|Android(?!.*Mobile)/i.test(userAgent);
-  const isDesktop = !isMobile && !isTablet;
-
-  return {
-    isMobile,
-    isTablet,
-    isDesktop,
-    platform: navigator.platform,
-    userAgent,
-  };
-}
-
-export function isTouchDevice(): boolean {
-  if (typeof window === 'undefined') return false;
-  
-  return 'ontouchstart' in window || 
-         navigator.maxTouchPoints > 0 || 
-         // @ts-ignore - legacy property for older browsers
-         navigator.msMaxTouchPoints > 0;
-}
-
-export function isMobileDevice(): boolean {
-  if (typeof window === 'undefined') return false;
-  
-  const { isMobile, isTablet } = getDeviceInfo();
-  return isMobile || isTablet;
-}
-
-export function shouldUseTouchControls(): boolean {
-  return isTouchDevice() && isMobileDevice();
-}
 
 export function smoothArray(array: number[], smoothingFactor: number = 0.8): number[] {
   const smoothed = [array[0]];

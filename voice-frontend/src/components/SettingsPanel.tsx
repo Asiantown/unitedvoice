@@ -87,7 +87,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         setAudioInputDevices(inputDevices);
         setAudioOutputDevices(outputDevices);
       } catch (error) {
-        console.error('Failed to enumerate audio devices:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to enumerate audio devices:', error);
+        }
       }
     };
 

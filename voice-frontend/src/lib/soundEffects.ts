@@ -24,7 +24,9 @@ export class SoundEffects {
       }
       this.audioContext = new (window.AudioContext || (window as unknown as typeof window.AudioContext))();
     } catch (error) {
-      console.warn('Audio context not supported:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Audio context not supported:', error);
+      }
       this.enabled = false;
     }
   }
