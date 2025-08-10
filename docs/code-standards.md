@@ -1,8 +1,5 @@
 # Code Standards and Clarity
 
-## Philosophy
-Our code is written for humans first, machines second. Every line should be self-documenting, every function purposeful, and every module cohesive.
-
 ## Python Code Standards
 
 ### Type Hints and Documentation
