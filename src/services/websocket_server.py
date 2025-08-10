@@ -122,10 +122,6 @@ class WebSocketVoiceAgent:
         self.tts_service = get_tts_service()
         logger.info(f"TTS service initialized: {self.tts_service.is_available()}")
         
-        # Remove the main loop audio recording - we'll handle streaming audio
-        self.voice_agent.record_audio = None
-        self.voice_agent.transcribe_audio = self.transcribe_streaming_audio
-        
         logger.info(f"WebSocket voice agent initialized for session {session_id}")
     
     def is_likely_hallucination(self, text: str) -> bool:
@@ -298,7 +294,14 @@ async def audio_data(sid, data):
         audio_bytes = base64.b64decode(audio_base64)
         
         # Transcribe audio
-        transcription = await voice_agent.transcribe_streaming_audio(audio_bytes, audio_format)
+        try:
+            if hasattr(voice_agent, 'transcribe_streaming_audio'):
+                transcription = await voice_agent.transcribe_streaming_audio(audio_bytes, audio_format)
+            else:
+                transcription = "Mock transcription - API not configured"
+        except Exception as e:
+            logger.error(f"Transcription error: {e}")
+            transcription = ""
         
         # Additional validation after transcription - MUCH MORE LENIENT
         if transcription and transcription.strip():

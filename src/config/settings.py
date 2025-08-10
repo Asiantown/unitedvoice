@@ -14,6 +14,10 @@ import logging
 import os
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Safe import with fallback for environment loader
 try:
