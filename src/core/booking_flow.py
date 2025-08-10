@@ -218,6 +218,14 @@ class BookingFlow:
             elif intent_result.intent == "flexible_search":
                 return self._handle_flexible_date_request(user_input)
             
+            elif intent_result.intent == "goodbye":
+                # Handle goodbye intent based on current state
+                if self.state == BookingState.BOOKING_COMPLETE:
+                    return self._handle_complete(user_input)
+                else:
+                    # User might be trying to end conversation prematurely
+                    return "Are you sure you want to end our conversation? We haven't completed your booking yet."
+            
             elif intent_result.intent == "inappropriate_content":
                 return self._handle_inappropriate_content(intent_result)
             
@@ -360,7 +368,10 @@ class BookingFlow:
     
     def _handle_no_confirmation(self, intent_result) -> str:
         """Handle no confirmations and corrections"""
-        if self.state == BookingState.CONFIRMING_SELECTION:
+        if self.state == BookingState.BOOKING_COMPLETE:
+            # User is saying "no" to "anything else?" after booking is complete
+            return self._handle_complete("no")
+        elif self.state == BookingState.CONFIRMING_SELECTION:
             self._transition_state(BookingState.PRESENTING_OPTIONS, "User declined confirmation")
             return "No problem. Let me show you the options again. " + self._present_flight_options()
         else:
@@ -1275,6 +1286,27 @@ class BookingFlow:
     
     def _handle_complete(self, user_input: str) -> str:
         """Handle post-booking interaction"""
+        user_lower = user_input.lower().strip()
+        
+        # Check if user is saying goodbye or nothing else needed
+        goodbye_phrases = [
+            'no', 'nothing', 'that\'s all', 'that\'s it', 'all set', 'i\'m good',
+            'no thanks', 'nothing else', 'bye', 'goodbye', 'thanks', 'thank you',
+            'i\'m done', 'all done', 'finished', 'complete', 'good to go'
+        ]
+        
+        if any(phrase in user_lower for phrase in goodbye_phrases):
+            return "Thanks so much for choosing United! Have an amazing trip and safe travels. Take care!"
+        
+        # Check if user wants to book another flight
+        if any(phrase in user_lower for phrase in ['another', 'new', 'different', 'more', 'book', 'flight']):
+            # Reset for new booking
+            self.booking_info = EnhancedBookingInfo()
+            self.context = {}
+            self._transition_state(BookingState.GREETING, "User wants to book another flight")
+            return "I'd be happy to help you book another flight! Where would you like to go?"
+        
+        # Default response for unrecognized input after booking
         return "Thanks so much for choosing United! Have an amazing trip and safe travels. Take care!"
     
     def _handle_error(self, user_input: str) -> str:

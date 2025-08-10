@@ -216,7 +216,7 @@ class IntentRecognizer:
 {context}
 Input: "{user_input}"
 
-Intents: provide_name, provide_city, provide_date, time_preference, confirm_yes, confirm_no, correction, question, cancel, flexible_search, select_option
+Intents: provide_name, provide_city, provide_date, time_preference, confirm_yes, confirm_no, correction, question, cancel, flexible_search, select_option, goodbye
 
 Entities: name, departure_city, destination_city, departure_date, return_date, trip_type, option_number
 
@@ -227,6 +227,7 @@ CRITICAL RULES:
 - If user provides trip details when greeting, extract cities and trip type but NOT a name
 
 IMPORTANT: 
+- If state is "booking_complete" and user says "no", "nothing else", "that's all", "I'm done" = use "goodbye" intent
 - If state is "presenting_options" and user says words like "one", "first", "option 1", use "select_option" intent
 - If state is "collecting_trip_type": classify as "provide_city" intent and extract trip_type entity
 - Always detect trip type: "round trip", "roundtrip" = trip_type: "round_trip". "One way", "one-way", "one" = trip_type: "one_way"
