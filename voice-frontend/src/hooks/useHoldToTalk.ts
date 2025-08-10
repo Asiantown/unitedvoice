@@ -368,11 +368,24 @@ export const useHoldToTalk = (config: UseHoldToTalkConfig = {}) => {
                            (mouseEnabled && isMousePressed) || 
                            (touchEnabled && isTouchPressed);
 
+    console.log('[HoldToTalk] Hold state check:', {
+      shouldBeHolding,
+      spacebarEnabled,
+      isSpacePressed,
+      mouseEnabled,
+      isMousePressed,
+      touchEnabled,
+      isTouchPressed,
+      recordingState
+    });
+
     setHoldingToTalk(shouldBeHolding);
 
     if (shouldBeHolding && recordingState === 'idle') {
+      console.log('[HoldToTalk] Starting recording from hold state');
       startRecordingInternal();
     } else if (!shouldBeHolding && recordingState === 'recording') {
+      console.log('[HoldToTalk] Stopping recording from hold state');
       stopRecordingInternal();
     }
   }, [
@@ -448,15 +461,19 @@ export const useHoldToTalk = (config: UseHoldToTalkConfig = {}) => {
   }, [mouseEnabled]);
 
   const handleTouchStart = useCallback((event: React.TouchEvent) => {
+    console.log('[HoldToTalk] Touch start - touchEnabled:', touchEnabled);
     if (!touchEnabled) return;
     event.preventDefault();
     setIsTouchPressed(true);
+    console.log('[HoldToTalk] Touch pressed set to true');
   }, [touchEnabled]);
 
   const handleTouchEnd = useCallback((event: React.TouchEvent) => {
+    console.log('[HoldToTalk] Touch end - touchEnabled:', touchEnabled);
     if (!touchEnabled) return;
     event.preventDefault();
     setIsTouchPressed(false);
+    console.log('[HoldToTalk] Touch pressed set to false');
   }, [touchEnabled]);
 
   // Manual start/stop methods

@@ -38,10 +38,20 @@ export const useDeviceDetection = (): UseDeviceDetectionReturn => {
   useEffect(() => {
     // Update device info after component mounts (client-side only)
     const info = getDeviceInfo();
+    const touchDevice = isTouchDevice();
+    const useTouchControls = shouldUseTouchControls();
+    
+    console.log('[DeviceDetection] Device info:', {
+      ...info,
+      isTouchDevice: touchDevice,
+      shouldUseTouchControls: useTouchControls,
+      userAgent: navigator.userAgent
+    });
+    
     setDeviceInfo({
       ...info,
-      isTouchDevice: isTouchDevice(),
-      shouldUseTouchControls: shouldUseTouchControls(),
+      isTouchDevice: touchDevice,
+      shouldUseTouchControls: useTouchControls,
     });
 
     // Listen for orientation changes on mobile devices

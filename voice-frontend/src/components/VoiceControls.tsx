@@ -419,7 +419,16 @@ export const VoiceControls: React.FC<VoiceControlsProps> = memo(({
    * Enhanced touch handlers with proper event handling for mobile
    */
   const handleTouchStartEnhanced = useCallback((event: React.TouchEvent<HTMLButtonElement>): void => {
-    if (disabled || !isConnected || !deviceInfo.shouldUseTouchControls) return;
+    console.log('[VoiceControls] Touch start enhanced:', { 
+      disabled, 
+      isConnected, 
+      shouldUseTouchControls: deviceInfo.shouldUseTouchControls 
+    });
+    
+    if (disabled || !isConnected || !deviceInfo.shouldUseTouchControls) {
+      console.log('[VoiceControls] Touch start blocked - conditions not met');
+      return;
+    }
     
     // Prevent default touch behaviors (like scrolling, selection, etc.)
     event.preventDefault();
@@ -434,6 +443,7 @@ export const VoiceControls: React.FC<VoiceControlsProps> = memo(({
     setShowTouchFeedback(true);
     setTimeout(() => setShowTouchFeedback(false), 600);
     
+    console.log('[VoiceControls] Calling handleTouchStart from hook');
     handleTouchStart(event);
   }, [disabled, isConnected, deviceInfo.shouldUseTouchControls, handleTouchStart]);
 
