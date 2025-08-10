@@ -13,6 +13,7 @@ import { AudioWaveform } from '@/components/AudioWaveform';
 import { Button } from '@/components/ui/button';
 
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import { useConnectionStatus, useRecordingStatus } from '@/store/voiceStore';
 
 /**
@@ -103,6 +104,9 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = memo(({
   const { connectionState, error: wsError } = useConnectionStatus();
   const { recordingState } = useRecordingStatus();
   const isRecording = recordingState === 'recording';
+
+  // Device detection
+  const { deviceInfo, getControlInstructions } = useDeviceDetection();
 
   // WebSocket hook
   const {
@@ -333,12 +337,22 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = memo(({
               )}
             </AnimatePresence>
 
-            {/* Keyboard Shortcuts Hint */}
+            {/* Control Instructions/Keyboard Shortcuts Hint */}
             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-center">
               <p className="text-xs text-foreground-muted">
-                Press <kbd className="px-1 py-0.5 bg-muted rounded text-xs">Space</kbd> to talk • 
-                <kbd className="px-1 py-0.5 bg-muted rounded text-xs ml-1">⌘,</kbd> for settings •
-                <kbd className="px-1 py-0.5 bg-muted rounded text-xs ml-1">F11</kbd> for fullscreen
+                {deviceInfo.shouldUseTouchControls ? (
+                  <>
+                    Touch and hold mic to talk • 
+                    <kbd className="px-1 py-0.5 bg-muted rounded text-xs ml-1">⌘,</kbd> for settings •
+                    <kbd className="px-1 py-0.5 bg-muted rounded text-xs ml-1">F11</kbd> for fullscreen
+                  </>
+                ) : (
+                  <>
+                    Press <kbd className="px-1 py-0.5 bg-muted rounded text-xs">Space</kbd> to talk • 
+                    <kbd className="px-1 py-0.5 bg-muted rounded text-xs ml-1">⌘,</kbd> for settings •
+                    <kbd className="px-1 py-0.5 bg-muted rounded text-xs ml-1">F11</kbd> for fullscreen
+                  </>
+                )}
               </p>
             </div>
           </section>

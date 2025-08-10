@@ -622,3 +622,102 @@ kbd {
     0 0 20px rgba(139, 92, 246, 0.3),
     0 0 30px rgba(139, 92, 246, 0.1);
 }
+
+/* Mobile touch controls */
+.touch-button {
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.touch-button:active {
+  transform: scale(0.95);
+  transition: transform 0.1s ease-out;
+}
+
+/* Mobile touch feedback */
+@keyframes touch-feedback {
+  0% {
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.8);
+  }
+  100% {
+    box-shadow: 0 0 0 20px rgba(139, 92, 246, 0);
+  }
+}
+
+.touch-feedback {
+  animation: touch-feedback 0.6s ease-out;
+}
+
+/* Mobile recording state */
+.mobile-recording {
+  background: linear-gradient(135deg, 
+    rgba(239, 68, 68, 0.9) 0%, 
+    rgba(220, 38, 127, 0.9) 100%);
+  box-shadow: 
+    0 0 20px rgba(239, 68, 68, 0.5),
+    0 4px 15px 0 rgba(239, 68, 68, 0.3);
+  animation: mobile-recording-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes mobile-recording-pulse {
+  0%, 100% {
+    box-shadow: 
+      0 0 20px rgba(239, 68, 68, 0.5),
+      0 4px 15px 0 rgba(239, 68, 68, 0.3),
+      0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  50% {
+    box-shadow: 
+      0 0 30px rgba(239, 68, 68, 0.7),
+      0 6px 20px 0 rgba(239, 68, 68, 0.4),
+      0 0 0 15px rgba(239, 68, 68, 0);
+  }
+}
+
+/* Enhanced touch gestures for iOS */
+.ios-touch {
+  -webkit-appearance: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Enhanced touch gestures for Android */
+.android-touch {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Mobile viewport optimizations */
+@media screen and (max-width: 768px) {
+  /* Ensure buttons are large enough for touch */
+  .voice-controls-container button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Prevent zooming on input focus */
+  input, select, textarea {
+    font-size: 16px;
+  }
+  
+  /* Optimize touch targets */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* Mobile landscape optimizations */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  .mobile-landscape-optimize {
+    padding: 0.5rem;
+  }
+}

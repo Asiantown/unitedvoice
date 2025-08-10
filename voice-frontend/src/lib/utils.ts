@@ -191,6 +191,26 @@ export function getDeviceInfo(): {
   };
 }
 
+export function isTouchDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  
+  return 'ontouchstart' in window || 
+         navigator.maxTouchPoints > 0 || 
+         // @ts-ignore - legacy property for older browsers
+         navigator.msMaxTouchPoints > 0;
+}
+
+export function isMobileDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  
+  const { isMobile, isTablet } = getDeviceInfo();
+  return isMobile || isTablet;
+}
+
+export function shouldUseTouchControls(): boolean {
+  return isTouchDevice() && isMobileDevice();
+}
+
 export function smoothArray(array: number[], smoothingFactor: number = 0.8): number[] {
   const smoothed = [array[0]];
   
